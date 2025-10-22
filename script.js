@@ -45,10 +45,11 @@ document.addEventListener("DOMContentLoaded", () => {
         else if (section === "Gjeld") renderDebtModule(moduleRoot);
         else if (section === "Inntekter") renderIncomeModule(moduleRoot);
         else if (section === "Analyse") renderAnalysisModule(moduleRoot);
-        else if (section === "Forventninger") renderExpectationsModule(moduleRoot);
-        else if (section === "Grafikk") renderGraphicsModule(moduleRoot);
-        else if (section === "Grafikk2") renderDonutModule(moduleRoot);
-        else if (section === "Fremtiden") renderFutureModule(moduleRoot);
+        else if (section === "Forventet avkastning") renderExpectationsModule(moduleRoot);
+        else if (section === "Grafikk I") renderGraphicsModule(moduleRoot);
+        else if (section === "Grafikk II") renderDonutModule(moduleRoot);
+        else if (section === "Kontantstrøm") renderWaterfallModule(moduleRoot);
+        else if (section === "Fremtidig utvikling") renderFutureModule(moduleRoot);
         else moduleRoot.innerHTML = "";
       }
       updateTopSummaries();
@@ -74,13 +75,15 @@ document.addEventListener("DOMContentLoaded", () => {
         renderIncomeModule(moduleRoot);
       } else if (title === "Analyse") {
         renderAnalysisModule(moduleRoot);
-      } else if (title === "Forventninger") {
+      } else if (title === "Forventet avkastning") {
         renderExpectationsModule(moduleRoot);
-      } else if (title === "Grafikk") {
+      } else if (title === "Grafikk I") {
         renderGraphicsModule(moduleRoot);
-      } else if (title === "Grafikk2") {
+      } else if (title === "Grafikk II") {
         renderDonutModule(moduleRoot);
-      } else if (title === "Fremtiden") {
+      } else if (title === "Kontantstrøm") {
+        renderWaterfallModule(moduleRoot);
+      } else if (title === "Fremtidig utvikling") {
         renderFutureModule(moduleRoot);
       } else {
         moduleRoot.innerHTML = "";
@@ -133,7 +136,7 @@ function renderExpectationsModule(root) {
   const panel = document.createElement("div");
   panel.className = "panel";
   const heading = document.createElement("h3");
-  heading.textContent = "Forventninger";
+  heading.textContent = "Forventet avkastning";
   panel.appendChild(heading);
 
   const list = document.createElement("div");
@@ -763,6 +766,175 @@ function renderDonutModule(root) {
     legendY += 22;
   });
 
+  root.appendChild(svg);
+}
+
+// --- Waterfall (Grafikk III) ---
+function renderWaterfallModule(root) {
+  root.innerHTML = "";
+
+  // Sample period selector (Month/Quarter/Year)
+  const controls = document.createElement("div");
+  controls.style.display = "none"; // make invisible as requested
+  const select = document.createElement("select");
+  ["Måned", "Kvartal", "År"].forEach((t) => { const o = document.createElement("option"); o.value = t; o.textContent = t; select.appendChild(o); });
+  controls.appendChild(select);
+  root.appendChild(controls);
+
+  const svgNS = "http://www.w3.org/2000/svg";
+  const vbW = 1200, vbH = 560;
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${vbW} ${vbH}`);
+  svg.style.width = "100%"; svg.style.height = "auto"; svg.style.display = "block";
+
+  const style = document.createElementNS(svgNS, "style");
+  style.textContent = `
+    .wf-title { font: 900 24px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #E5E7EB; }
+    .wf-label { font: 600 13px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #CBD5E1; }
+    .wf-value { font: 700 13px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #E5E7EB; }
+  `;
+  svg.appendChild(style);
+
+  const bg = document.createElementNS(svgNS, "rect");
+  bg.setAttribute("x", "0"); bg.setAttribute("y", "0");
+  bg.setAttribute("width", String(vbW)); bg.setAttribute("height", String(vbH));
+  bg.setAttribute("fill", "#1A2A47");
+  svg.appendChild(bg);
+
+  const panel = document.createElementNS(svgNS, "rect");
+  panel.setAttribute("x", "12"); panel.setAttribute("y", "12");
+  panel.setAttribute("width", String(vbW - 24)); panel.setAttribute("height", String(vbH - 24));
+  panel.setAttribute("rx", "12"); panel.setAttribute("fill", "#24385B"); panel.setAttribute("stroke", "#364A6E");
+  svg.appendChild(panel);
+
+  // Data synthesis from AppState with fixed categories
+  function getData() {
+    const incomeItems = AppState.incomes || [];
+    const upper = (s) => String(s || "").toUpperCase();
+
+    // Income categories
+    const wage = incomeItems.filter(x => /L[ØO]NN/.test(upper(x.name))).reduce((s,x)=> s + (x.amount || 0), 0);
+    const dividends = incomeItems.filter(x => /UTBYT/.test(upper(x.name))).reduce((s,x)=> s + (x.amount || 0), 0);
+    const otherIncome = incomeItems.filter(x => /ANDRE/.test(upper(x.name))).reduce((s,x)=> s + (x.amount || 0), 0);
+    const totalIncome = wage + dividends + otherIncome;
+
+    // Explicit cost categories from inputs
+    const annualTax = incomeItems.filter(x => /SKATT/.test(upper(x.name))).reduce((s,x)=> s + Math.abs(x.amount || 0), 0);
+    const annualCosts = incomeItems.filter(x => /KOSTNAD/.test(upper(x.name))).reduce((s,x)=> s + Math.abs(x.amount || 0), 0);
+
+    // Debt-derived costs: interest and principal (approx. first-year split)
+    const totalDebt = (AppState.debts || []).reduce((s,d)=> s + (d.amount || 0), 0);
+    const r = AppState.debtParams && AppState.debtParams.rate || 0;
+    const n = Math.max(1, AppState.debtParams && AppState.debtParams.years || 1);
+    let annualPayment = 0;
+    if ((AppState.debtParams && AppState.debtParams.type) === "Serielån") {
+      annualPayment = totalDebt / n + (totalDebt * r) / 2; // approx average
+    } else {
+      annualPayment = totalDebt * (r / (1 - Math.pow(1 + r, -n)));
+    }
+    const interestCost = totalDebt * r; // first-year interest approximation
+    const principalCost = Math.max(0, annualPayment - interestCost);
+
+    const costs = [
+      { key: "Årlig skatt", value: annualTax },
+      { key: "Årlige kostnader", value: annualCosts },
+      { key: "Rentekostnader", value: interestCost },
+      { key: "Avdrag", value: principalCost }
+    ].filter(c => c.value > 0);
+
+    const net = totalIncome - costs.reduce((s,c)=> s + c.value, 0);
+    return { totalIncome, costs, net };
+  }
+
+  function draw() {
+    // Clear dynamic content except styles/panel
+    while (svg.childNodes.length > 3) svg.removeChild(svg.lastChild);
+
+    const { totalIncome, costs, net } = getData();
+
+    const padX = 80; const padTop = 70; const padBottom = 64;
+    const chartW = vbW - padX * 2; const chartH = vbH - padTop - padBottom;
+
+    const steps = [
+      { type: "start", key: "Totale inntekter", value: totalIncome },
+      ...costs.map(c => ({ type: "down", key: c.key, value: -c.value })),
+      { type: "end", key: "Nettoresultat", value: net }
+    ];
+
+    const maxAbs = Math.max(
+      Math.abs(totalIncome),
+      Math.abs(net),
+      Math.abs(costs.reduce((s,c)=> Math.max(s, c.value), 0))
+    );
+    const scaleY = (v) => (v / Math.max(1, maxAbs)) * chartH;
+
+    const green = "#52cc86"; const red = "#d85f76"; const blue = "#60A5FA";
+
+    const colW = Math.max(60, Math.floor(chartW / steps.length) - 10);
+    let cursorX = padX;
+    let running = 0;
+    steps.forEach((s, idx) => {
+      let h, y, fill;
+      if (s.type === "start") {
+        h = scaleY(Math.abs(s.value));
+        y = padTop + chartH - h;
+        fill = blue;
+        running = s.value;
+      } else if (s.type === "down") {
+        const from = running;
+        running += s.value; // s.value is negative
+        h = scaleY(Math.abs(s.value));
+        y = padTop + chartH - scaleY(Math.abs(from)) + 1;
+        fill = red;
+      } else { // end
+        h = scaleY(Math.abs(s.value));
+        y = padTop + chartH - h;
+        fill = s.value >= 0 ? green : red;
+      }
+
+      const rect = document.createElementNS(svgNS, "rect");
+      rect.setAttribute("x", String(cursorX));
+      rect.setAttribute("y", String(y));
+      rect.setAttribute("width", String(colW));
+      rect.setAttribute("height", String(Math.max(2, h)));
+      rect.setAttribute("rx", "6");
+      rect.setAttribute("fill", fill);
+      rect.setAttribute("fill-opacity", "0.9");
+      rect.setAttribute("stroke", "#1f2937");
+      rect.setAttribute("stroke-opacity", "0.3");
+      svg.appendChild(rect);
+
+      const lab = document.createElementNS(svgNS, "text");
+      lab.setAttribute("class", "wf-label");
+      lab.setAttribute("x", String(cursorX + colW / 2));
+      lab.setAttribute("y", String(vbH - 24));
+      lab.setAttribute("text-anchor", "middle");
+      lab.textContent = s.key;
+      svg.appendChild(lab);
+
+      const val = document.createElementNS(svgNS, "text");
+      val.setAttribute("class", "wf-value");
+      val.setAttribute("x", String(cursorX + colW / 2));
+      val.setAttribute("y", String(y - 8));
+      val.setAttribute("text-anchor", "middle");
+      val.textContent = formatNOK(Math.round(Math.abs(s.value)));
+      svg.appendChild(val);
+
+      cursorX += colW + 10;
+    });
+
+    // Title
+    const title = document.createElementNS(svgNS, "text");
+    title.setAttribute("class", "wf-title");
+    title.setAttribute("x", String(vbW / 2));
+    title.setAttribute("y", "44");
+    title.setAttribute("text-anchor", "middle");
+    title.textContent = "Resultatanalyse (Waterfall)";
+    svg.appendChild(title);
+  }
+
+  select.addEventListener("change", draw);
+  draw();
   root.appendChild(svg);
 }
 // --- Fremtiden modul ---
