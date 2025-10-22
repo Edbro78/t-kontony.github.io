@@ -1,0 +1,629 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+
+:root {
+  /* Pensjonsgapet-inspirert palett */
+  --color-dark-blue: #1A2A47; /* hovedbakgrunn */
+  --color-blue: #24385B;      /* kortbakgrunn */
+  --accent-light-blue: #60A5FA; /* hover/slider thumbs */
+  --accent-cyan: #00A9E0;       /* hovedverdier/resultater */
+  --text-primary: #E5E7EB;      /* hvit */
+  --text-secondary: #CBD5E1;    /* medium grå */
+  --text-label: #94A3B8;        /* lys grå */
+  --border-color: #364A6E;      /* borders */
+  --success-green: #4ADE80;
+
+  /* Behold noen eksisterende tokens for kompatibilitet */
+  --color-cyan-40: var(--accent-light-blue);
+  --color-cyan-20: #bfe2ff;
+  --color-light-grey: var(--color-dark-blue);
+  --color-coal: var(--text-primary);
+  --color-white: #ffffff;
+
+  /* Overflater for visualisering */
+  --surface-navy-1: #1F2E4A;
+  --surface-navy-2: #22365A;
+
+  /* Typografi og spacing */
+  --font-sans: "Whitney", Inter, "Segoe UI", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --weight-book: 400;
+  --weight-medium: 500;
+  --weight-bold: 700;
+  --weight-black: 900;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+}
+
+/* Grunnoppsett */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--color-dark-blue);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+}
+
+/* Sidebar */
+.sidebar {
+  background: #122038;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+.brand {
+  padding: var(--space-5) var(--space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.brand-title {
+  margin: 0;
+  font-weight: var(--weight-bold);
+  font-size: 18px; /* H4 (S) nivå for merke */
+  letter-spacing: 0.2px;
+  color: var(--text-primary);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+}
+.nav-sep {
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+  margin: 8px 8px;
+  border-radius: 1px;
+}
+
+.nav-item {
+  appearance: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 10px;
+  text-align: left;
+  padding: 12px var(--space-3);
+  font-size: 21px; /* økt 30% fra 16px */
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+}
+
+.nav-item:hover,
+.nav-item:focus-visible {
+  outline: none;
+  background: rgba(96, 165, 250, 0.14); /* accent hover */
+  color: var(--text-primary);
+}
+
+.nav-item.is-active {
+  background: var(--color-blue);
+  color: var(--text-primary);
+}
+
+/* Innholdsområde */
+.content {
+  background: var(--color-dark-blue);
+  padding: var(--space-6);
+  color: var(--text-primary);
+}
+
+.content-header {
+  margin-bottom: var(--space-5);
+  padding-bottom: 8px; /* pb-2 */
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Typografi i henhold til retningslinjer (tilnærmet webversjon) */
+h1 {
+  font-weight: var(--weight-black);
+  font-size: clamp(48px, 6vw, 80px); /* H1 over 80pt når mulig */
+  margin: 0 0 var(--space-3) 0;
+}
+
+h2 { /* Seksjonstittel */
+  font-weight: var(--weight-black); /* 900 */
+  font-size: 24px;
+  margin: 0 0 var(--space-2) 0;
+  color: var(--text-primary);
+}
+
+h3 {
+  font-weight: var(--weight-bold);
+  font-size: 18px;
+  margin: var(--space-4) 0 var(--space-2) 0;
+}
+
+h4 {
+  font-weight: var(--weight-bold);
+  font-size: 16px;
+  margin: var(--space-3) 0 var(--space-1) 0;
+}
+
+.preamble { /* Innledning */
+  font-weight: var(--weight-book);
+  font-size: 16px;
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+p { /* Avsnitt */
+  font-weight: var(--weight-book);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 var(--space-4) 0;
+}
+
+/* Fokus- og tilgjengelighet */
+:focus-visible {
+  outline: 2px solid var(--color-cyan-40);
+  outline-offset: 2px;
+}
+
+/* Responsivitet / min. 1280x800 */
+@media (max-width: 1200px) {
+  .app { grid-template-columns: 220px 1fr; }
+}
+
+
+/* --- Output floating action button (FAB) --- */
+#output-fab {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 50; /* z-50 */
+  padding: 6px 12px; /* py-1.5 px-3 */
+  font-size: 12px; /* text-xs */
+  font-weight: 500; /* font-medium */
+  border-radius: 9999px; /* rounded-full */
+  background: rgba(51, 65, 85, 0.70); /* bg-slate-700/70 */
+  color: #E2E8F0; /* text-slate-200 */
+  border: 1px solid rgba(71, 85, 105, 0.70); /* border-slate-600/70 */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08); /* shadow-sm */
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+#output-fab:hover { background: #334155; /* hover:bg-slate-700 */ border-color: #475569; }
+
+/* --- Modal base (reuses disclaimer modal structure) --- */
+.modal[hidden] { display: none !important; }
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50; /* ensure above content */
+}
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.6); /* bg-black/60 */
+}
+.modal-panel {
+  position: relative;
+  margin: 48px auto;
+  width: calc(100% - 32px);
+  max-width: 672px; /* max-w-2xl */
+  background: #ffffff; /* white modal */
+  color: #0f172a; /* slate-900 */
+  border-radius: 12px;
+  box-shadow: 0 20px 48px rgba(0,0,0,0.35);
+  border: 1px solid #e2e8f0;
+  padding: 20px 20px 24px 20px;
+}
+.modal-panel h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: #0f172a;
+}
+.modal-close {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+}
+.modal-close:hover { background: #f8fafc; }
+
+/* --- Output textarea with embedded copy button --- */
+.output-editor {
+  position: relative;
+}
+.output-textarea {
+  width: 100%;
+  height: 16rem; /* h-64 */
+  resize: vertical;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1; /* slate-300 */
+  padding: 14px 48px 14px 14px; /* room for copy button */
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  font-size: 14px;
+  color: #0f172a;
+  background: #ffffff;
+}
+.output-textarea:focus {
+  outline: none;
+  border-color: #3b82f6; /* blue-500 */
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.15);
+}
+
+.copy-btn {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 12px;
+  border-radius: 9999px; /* rounded-full */
+  border: 1px solid #93c5fd; /* blue-300 */
+  background: #3b82f6; /* blue-500 */
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  transition: transform .08s ease, filter .15s ease, background-color .2s ease, border-color .2s ease;
+}
+.copy-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
+.copy-btn:active { transform: translateY(0); }
+
+/* Success state */
+.copy-btn.is-success {
+  background: #22c55e; /* green-500 */
+  border-color: #86efac; /* green-300 */
+}
+
+/* simple icon text */
+.copy-icon { font-size: 14px; line-height: 1; }
+.copy-label { line-height: 1; }
+
+/* --- Kort / panel --- */
+.content-body {
+  display: grid;
+  grid-template-columns: 1fr; /* la hovedpanel bruke full bredde */
+  gap: var(--space-6); /* 32px */
+}
+
+.panel {
+  background: var(--color-blue); /* kortbakgrunn */
+  border: 1px solid var(--border-color);
+  border-radius: 12px; /* rounded-xl */
+  padding: 24px; /* p-6 */
+  color: var(--text-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  max-width: none; /* la panel bruke full bredde i grid */
+  overflow: hidden;
+  grid-column: 1 / -1; /* span alle kolonner som standard */
+  margin-bottom: var(--space-5); /* konsistent spacing til neste element */
+  margin-right: 0; /* sikre lik høyremarg */
+}
+
+.panel h3 {
+  color: var(--text-primary);
+  margin-top: 0;
+  font-weight: var(--weight-bold);
+}
+
+/* Tom panel mellom overskrift og hovedinnhold */
+.panel-empty {
+  height: 72px;
+  margin-bottom: calc(2 * var(--space-5));
+  /* Fjern ytre panel-stil slik at bare de fire boksene vises */
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  overflow: visible; /* sørg for at avrundede kanter ikke klippes */
+}
+
+/* Inndeling i fire responsive bokser */
+.pe-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  height: 100%;
+}
+.pe-item {
+  border: 1px solid var(--border-color);
+  background: rgba(255,255,255,0.04);
+  border-radius: 10px;
+  height: 100%;
+  padding: 8px; /* luft mot kantlinjen */
+  display: flex;
+  align-items: flex-start;
+}
+
+.summary-card { display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; padding: 12px; gap: 6px; height: 100%; }
+.summary-title { font-weight: var(--weight-bold); color: var(--text-primary); text-align: left; }
+.summary-title.danger { color: #ef4444; }
+.summary-title.success { color: var(--success-green); }
+.summary-title.success-dark { color: #15803d; }
+.summary-assets { background: linear-gradient(180deg, rgba(0,169,224,0.10), rgba(0,169,224,0.04)); }
+.summary-assets .summary-value { color: #00A9E0; }
+
+.summary-debts { background: linear-gradient(180deg, rgba(239,68,68,0.10), rgba(239,68,68,0.04)); }
+.summary-debts .summary-value { color: #f87171; }
+
+.summary-equity { background: linear-gradient(180deg, rgba(34,197,94,0.10), rgba(34,197,94,0.04)); }
+.summary-equity .summary-value { color: #34d399; }
+
+.summary-cash { background: linear-gradient(180deg, rgba(21,128,61,0.10), rgba(21,128,61,0.04)); }
+.summary-cash .summary-value { color: #22c55e; }
+.summary-value { font-weight: var(--weight-bold); font-size: 1.5rem; color: var(--accent-cyan); text-align: left; }
+
+.assets { display: flex; flex-direction: column; gap: 24px; }
+
+.asset-row { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(500px, 1fr); gap: 16px; }
+.asset-col { display: flex; flex-direction: column; gap: 10px; }
+
+.asset-top { display: flex; align-items: center; gap: 10px; }
+
+.asset-name {
+  flex: 1;
+  border: 1px solid var(--border-color);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.1em; /* 10% */
+  text-transform: uppercase;
+}
+
+/* Kostnadsrader: svakt rødskjær på felt og rød verdi */
+.is-cost .asset-name {
+  background: linear-gradient(180deg, rgba(239,68,68,0.10), rgba(239,68,68,0.04));
+}
+.is-cost .asset-amount { color: #f87171; }
+.is-cost .asset-range::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, #b85a6a 0%, #1F2E4A 100%);
+}
+.is-cost .asset-range::-moz-range-track {
+  background: linear-gradient(90deg, #b85a6a 0%, #1F2E4A 100%);
+}
+
+.asset-delete {
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.asset-amount {
+  align-self: center;
+  font-weight: var(--weight-bold);
+  font-size: 1.4rem; /* redusert 30% fra 2rem */
+  color: var(--accent-cyan);
+  justify-self: end; /* hold tallene inne i høyre kolonne */
+  white-space: nowrap; /* ikke bryt siffer over flere linjer */
+  width: 100%;
+  box-sizing: border-box;
+  text-align: right;
+  padding: 10px 16px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-navy-1); /* mørk blå bak tallene */
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Stakk rader på smale skjermer for å sikre at hele tallet vises */
+@media (max-width: 1024px) {
+  .asset-row { grid-template-columns: 1fr; }
+  .asset-amount { justify-self: stretch; }
+}
+
+.asset-range { width: 100%; height: 6px; }
+.year-range { width: 100%; height: 8px; }
+
+/* Range styling - WebKit */
+.asset-range::-webkit-slider-runnable-track {
+  height: 6px;
+  background: linear-gradient(90deg, #1F2E4A 0%, #22365A 100%);
+  border-radius: 6px;
+}
+.asset-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -7px; /* centers the 20px knob on 6px track */
+  width: 20px;
+  height: 20px;
+  background: var(--accent-light-blue);
+  border: 3px solid var(--color-blue);
+  border-radius: 50%;
+}
+
+/* Range styling - Firefox */
+.asset-range::-moz-range-track {
+  height: 6px;
+  background: linear-gradient(90deg, #1F2E4A 0%, #22365A 100%);
+  border-radius: 6px;
+}
+.asset-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--accent-light-blue);
+  border: 3px solid var(--color-blue);
+  border-radius: 50%;
+}
+
+.btn-add {
+  margin-top: 10px;
+  width: 100%;
+  background: var(--accent-cyan);
+  color: #06202b;
+  border: 1px solid var(--border-color);
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+}
+.btn-add:hover { filter: brightness(1.05); box-shadow: 0 0 0 4px rgba(0,169,224,0.15); }
+
+/* --- Gjeld modul --- */
+.debt .asset-range { /* reuse markup; different color track for gjeld */ height: 6px; }
+.debt .asset-range::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, #b85a6a 0%, #1F2E4A 100%);
+}
+.debt .asset-range::-moz-range-track {
+  background: linear-gradient(90deg, #b85a6a 0%, #1F2E4A 100%);
+}
+
+.section-label {
+  margin-top: 6px;
+  margin-bottom: 6px;
+  font-size: 16px; /* labels */
+  letter-spacing: 0.1em; /* 10% */
+  text-transform: uppercase;
+  color: var(--text-label);
+  font-weight: var(--weight-medium);
+}
+
+.select {
+  position: relative;
+}
+.select select {
+  width: 100%;
+  padding: 12px 40px 12px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+}
+.select:after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 0; height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--text-secondary);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* --- Analyse modul --- */
+.kpi-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--text-primary);
+}
+.kpi-table th,
+.kpi-table td {
+  padding: 14px 12px;
+}
+.kpi-table thead th {
+  text-align: left;
+  color: var(--text-label);
+  font-weight: var(--weight-medium);
+}
+.kpi-table tbody tr + tr { border-top: 1px solid var(--border-color); }
+.kpi-table .muted { color: var(--text-secondary); }
+/* Kombinasjonsresultater i kolonne 2 */
+.kpi-table tbody td:nth-child(2) {
+  font-size: 1.5rem; /* 24px */
+  font-weight: var(--weight-bold);
+  color: var(--accent-cyan);
+}
+
+/* Marker kostnadsrader i analysen med rød verdi og subtil bakgrunn */
+.kpi-table tr.is-cost td:nth-child(2) { color: #f87171; }
+.kpi-table tr.is-cost { background: rgba(239,68,68,0.04); }
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.status.ok::before,
+.status.warn::before {
+  content: "";
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.status.ok::before { background: var(--success-green); }
+.status.warn::before { background: #ef4444; }
+
+/* --- Grafikk modul --- */
+.viz {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  min-height: 448px;
+}
+.viz h4 { color: var(--text-primary); margin: 0 0 8px 0; text-align: center; }
+.viz-col { display: flex; flex-direction: column; gap: 18px; height: 448px; }
+
+.viz-block {
+  background: var(--color-blue);
+  border-radius: 14px;
+  padding: 16px;
+  text-align: center;
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px rgba(54,74,110,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto; /* height controlled explicitly */
+  min-height: 56px;
+}
+.viz-block.primary { background: var(--color-blue); }
+.viz-block.secondary { background: #294269; }
+.viz-block.tertiary { background: #203554; }
+.viz-block.equity { background: #52cc86; color: #08331b; font-weight: var(--weight-bold); }
+.viz-block.debt { background: #d85f76; }
+.viz-block .value {
+  color: var(--accent-cyan);
+  font-weight: var(--weight-bold);
+  font-size: 1.5rem; /* 24px kombinasjonsresultat */
+}
+
+.viz-divider { position: relative; }
+.viz-divider::before {
+  content: "";
+  position: absolute;
+  left: 50%; top: 0; bottom: 0;
+  width: 4px;
+  background: rgba(54,74,110,0.8);
+  border-radius: 4px;
+  transform: translateX(-50%);
+}
+
+.viz-expand {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: rgba(255,255,255,0.08);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+
