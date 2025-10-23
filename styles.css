@@ -567,6 +567,21 @@ p { /* Avsnitt */
 }
 .status.ok::before { background: var(--success-green); }
 .status.warn::before { background: #ef4444; }
+.status.mid::before { background: #f59e0b; }
+
+/* TBE konklusjon banner */
+.tbe-conclusion {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: rgba(255,255,255,0.04);
+}
+.tbe-conclusion.low { background: rgba(239,68,68,0.08); }
+.tbe-conclusion.mid { background: rgba(245,158,11,0.10); }
+.tbe-conclusion.high { background: rgba(34,197,94,0.10); }
+.tbe-title { font-weight: var(--weight-bold); margin-bottom: 6px; }
 
 /* --- Grafikk modul --- */
 .viz {
