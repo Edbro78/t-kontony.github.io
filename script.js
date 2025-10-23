@@ -45,6 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
         else if (section === "Gjeld") renderDebtModule(moduleRoot);
         else if (section === "Inntekter") renderIncomeModule(moduleRoot);
         else if (section === "Analyse") renderAnalysisModule(moduleRoot);
+        else if (section === "Tapsbærende evne") renderTbeModule(moduleRoot);
         else if (section === "Forventet avkastning") renderExpectationsModule(moduleRoot);
         else if (section === "Grafikk I") renderGraphicsModule(moduleRoot);
         else if (section === "Grafikk II") renderDonutModule(moduleRoot);
@@ -75,6 +76,8 @@ document.addEventListener("DOMContentLoaded", () => {
         renderIncomeModule(moduleRoot);
       } else if (title === "Analyse") {
         renderAnalysisModule(moduleRoot);
+      } else if (title === "Tapsbærende evne") {
+        renderTbeModule(moduleRoot);
       } else if (title === "Forventet avkastning") {
         renderExpectationsModule(moduleRoot);
       } else if (title === "Grafikk I") {
@@ -843,23 +846,25 @@ function renderWaterfallModule(root) {
     ].filter(c => c.value > 0);
 
     const net = totalIncome - costs.reduce((s,c)=> s + c.value, 0);
-    return { totalIncome, costs, net };
+    return { totalIncome, costs, net, wage, dividends, otherIncome };
   }
 
   function draw() {
     // Clear dynamic content except styles/panel
     while (svg.childNodes.length > 3) svg.removeChild(svg.lastChild);
 
-    const { totalIncome, costs, net } = getData();
+    const { totalIncome, costs, net, wage, dividends, otherIncome } = getData();
 
     const padX = 80; const padTop = 70; const padBottom = 64;
     const chartW = vbW - padX * 2; const chartH = vbH - padTop - padBottom;
 
-    const steps = [
-      { type: "start", key: "Totale inntekter", value: totalIncome },
-      ...costs.map(c => ({ type: "down", key: c.key, value: -c.value })),
-      { type: "end", key: "Nettoresultat", value: net }
-    ];
+    // Bygg trinn, utelat nullverdier
+    const steps = [];
+    if (wage > 0) steps.push({ type: "up", key: "Lønnsinntekt", value: wage });
+    if (dividends > 0) steps.push({ type: "up", key: "Utbytter", value: dividends });
+    if (otherIncome > 0) steps.push({ type: "up", key: "Andre inntekter", value: otherIncome });
+    costs.forEach(c => { if (c.value > 0) steps.push({ type: "down", key: c.key, value: -c.value }); });
+    steps.push({ type: "end", key: "Årlig kontantstrøm", value: net });
 
     const maxAbs = Math.max(
       Math.abs(totalIncome),
@@ -868,28 +873,43 @@ function renderWaterfallModule(root) {
     );
     const scaleY = (v) => (v / Math.max(1, maxAbs)) * chartH;
 
-    const green = "#52cc86"; const red = "#d85f76"; const blue = "#60A5FA";
+    const green = "#52cc86"; const blue = "#60A5FA";
+    // Behagelige rødfarger i nyanser for kostnadssøyler
+    const redPalette = ["#f199a2", "#eb6f7e", "#e25f70", "#d84f63", "#cf4157"]; // lys -> dyp
+    const redEnd = "#d84f63"; // sluttstolpe ved negativ kontantstrøm
+    // Behagelige grønnfarger for inntekts-søylene
+    const greenPalette = ["#7be3a7", "#52cc86", "#34c185", "#2fb779"]; // varierte grønntoner
 
     const colW = Math.max(60, Math.floor(chartW / steps.length) - 10);
     let cursorX = padX;
     let running = 0;
+    let downIndex = 0; let upIndex = 0;
     steps.forEach((s, idx) => {
+      if (!s || !isFinite(s.value) || s.value === 0) return; // hopp over nulltrinn
       let h, y, fill;
       if (s.type === "start") {
         h = scaleY(Math.abs(s.value));
         y = padTop + chartH - h;
         fill = blue;
         running = s.value;
+      } else if (s.type === "up") {
+        const from = running;
+        running += s.value;
+        h = scaleY(Math.abs(s.value));
+        y = padTop + chartH - scaleY(Math.abs(running));
+        fill = greenPalette[upIndex % greenPalette.length];
+        upIndex++;
       } else if (s.type === "down") {
         const from = running;
         running += s.value; // s.value is negative
         h = scaleY(Math.abs(s.value));
         y = padTop + chartH - scaleY(Math.abs(from)) + 1;
-        fill = red;
+        fill = redPalette[downIndex % redPalette.length];
+        downIndex++;
       } else { // end
         h = scaleY(Math.abs(s.value));
         y = padTop + chartH - h;
-        fill = s.value >= 0 ? green : red;
+        fill = s.value >= 0 ? green : redEnd;
       }
 
       const rect = document.createElementNS(svgNS, "rect");
@@ -929,7 +949,7 @@ function renderWaterfallModule(root) {
     title.setAttribute("x", String(vbW / 2));
     title.setAttribute("y", "44");
     title.setAttribute("text-anchor", "middle");
-    title.textContent = "Resultatanalyse (Waterfall)";
+    title.textContent = "Waterfall";
     svg.appendChild(title);
   }
 
@@ -1016,7 +1036,7 @@ function renderFutureModule(root) {
   wrap.style.display = "flex";
   wrap.style.flexDirection = "column";
   wrap.style.alignItems = "center";
-  wrap.style.marginTop = "-48px";
+  wrap.style.marginTop = "-96px"; // bring slider closer to the graphic
 
   const yearLabel = document.createElement("div");
   yearLabel.className = "year-display";
@@ -1175,7 +1195,8 @@ function createItemRow(collectionName, item) {
   function setRangeBounds() {
     if (collectionName === "incomes") {
       const label = String(item.name || name.value || "").toUpperCase();
-      if (/L[ØO]NN|SKATT/.test(label)) {
+      // Lønn, Skatt, Utbytter, Andre inntekter, Kostnader: maks 10 MNOK
+      if (/L[ØO]NN|SKATT|UTBYT|ANDRE|KOSTNAD/.test(label)) {
         range.max = "10000000";
       } else {
         range.max = "50000000";
@@ -1481,6 +1502,116 @@ function renderAnalysisModule(root) {
   table.appendChild(thead);
   table.appendChild(tbody);
   panel.appendChild(table);
+  root.appendChild(panel);
+  updateTopSummaries();
+}
+
+// --- Tapsbærende Evne (TBE) ---
+function renderTbeModule(root) {
+  root.innerHTML = "";
+
+  const panel = document.createElement("div");
+  panel.className = "panel";
+
+  const heading = document.createElement("h3");
+  heading.textContent = "Tapsbærende evne (TBE)";
+  panel.appendChild(heading);
+
+  // Hent grunnlag
+  const totalAssets = (AppState.assets || []).reduce((s, x) => s + (x.amount || 0), 0);
+  const totalDebt = (AppState.debts || []).reduce((s, x) => s + (x.amount || 0), 0);
+
+  const incomeItems = AppState.incomes || [];
+  const upper = (s) => String(s || "").toUpperCase();
+  const annualCosts = incomeItems.filter((x) => /SKATT|KOSTNAD/.test(upper(x.name))).reduce((s, x) => s + (x.amount || 0), 0);
+  const totalIncome = incomeItems.filter((x) => !/SKATT|KOSTNAD/.test(upper(x.name))).reduce((s, x) => s + (x.amount || 0), 0);
+
+  // Gjeldsforpliktelser (per år)
+  const r = AppState.debtParams.rate || 0; // årlig
+  const n = Math.max(1, AppState.debtParams.years || 1);
+  let annualDebtPayment = 0;
+  if (AppState.debtParams.type === "Annuitetslån") {
+    annualDebtPayment = r === 0 ? totalDebt / n : totalDebt * (r / (1 - Math.pow(1 + r, -n)));
+  } else {
+    annualDebtPayment = totalDebt / n + (totalDebt * r) / 2;
+  }
+
+  // Nøkler
+  const equity = totalAssets - totalDebt;
+  const disposableCashflow = totalIncome - annualCosts; // etter skatt/utgifter, før renter/avdrag
+
+  const debtToIncome = totalIncome > 0 ? totalDebt / totalIncome : 0; // Gjeldsgrad
+  const equityPct = totalAssets > 0 ? (equity / totalAssets) * 100 : 0; // EK%
+  const cashToDebt = totalDebt > 0 ? disposableCashflow / totalDebt : 0; // Kontantstrøm/Gjeld
+
+  // Klassifisering iht. kriterier
+  function scoreDebtToIncome(v) { if (v <= 3.0) return "high"; if (v < 4.5) return "mid"; return "low"; }
+  function scoreEquityPct(v) { if (v >= 50) return "high"; if (v >= 30) return "mid"; return "low"; }
+  function scoreCashToDebt(v) { if (v >= 2.0) return "high"; if (v >= 1.5) return "mid"; return "low"; }
+
+  const s1 = scoreDebtToIncome(debtToIncome);
+  const s2 = scoreEquityPct(equityPct);
+  const s3 = scoreCashToDebt(cashToDebt);
+
+  // Samlet konklusjon
+  let overall = "mid";
+  if (s1 === "high" && s2 === "high" && s3 === "high") overall = "high";
+  if (s1 === "low" || s2 === "low" || s3 === "low") overall = "low";
+
+  function statusLabel(s) { return s === "high" ? "HØY" : s === "mid" ? "MIDDELS" : "LAV"; }
+  function statusClass(s) { return s === "high" ? "ok" : s === "mid" ? "mid" : "warn"; }
+  function fmtX(x) { return `${x.toFixed(2).replace('.', ',')}x`; }
+  function fmtPct(p) { return `${p.toFixed(1).replace('.', ',')} %`; }
+
+  // Tabell
+  const table = document.createElement("table");
+  table.className = "kpi-table";
+  const thead = document.createElement("thead");
+  thead.innerHTML = "<tr><th>Nøkkeltall</th><th>Resultat</th><th>Vurdering</th><th>Formel</th><th>Måler</th></tr>";
+  const tbody = document.createElement("tbody");
+
+  function trRow(name, resultText, score, formula, measure) {
+    const tr = document.createElement("tr");
+    const td1 = document.createElement("td"); td1.textContent = name; td1.className = "muted";
+    const td2 = document.createElement("td"); td2.textContent = resultText;
+    const td3 = document.createElement("td"); const wrap = document.createElement("span"); wrap.className = `status ${statusClass(score)}`; wrap.textContent = statusLabel(score); td3.appendChild(wrap);
+    const td4 = document.createElement("td"); td4.textContent = formula; td4.className = "muted";
+    const td5 = document.createElement("td"); td5.textContent = measure; td5.className = "muted";
+    tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4); tr.appendChild(td5);
+    return tr;
+  }
+
+  tbody.appendChild(trRow("Gjeldsgrad", fmtX(debtToIncome), s1, "Total gjeld / Årlig inntekt", "Gjeldskapasitet"));
+  tbody.appendChild(trRow("Egenkapitalandel (EK%)", fmtPct(equityPct), s2, "(Total EK / Totale eiendeler) × 100", "Soliditet"));
+  tbody.appendChild(trRow("Kontantstrøm/Gjeld", fmtX(cashToDebt), s3, "Årlig kontantstrøm / Gjeld", "Likviditet"));
+
+  table.appendChild(thead);
+  table.appendChild(tbody);
+  panel.appendChild(table);
+
+  // Konklusjon
+  const concl = document.createElement("div");
+  concl.className = `tbe-conclusion ${overall}`;
+  const title = document.createElement("div");
+  title.className = "tbe-title";
+  title.textContent = `Samlet TBE: ${statusLabel(overall)}`;
+  const expl = document.createElement("p");
+  let reason = "";
+  if (overall === "low") {
+    const worst = s1 === "low" ? `høy Gjeldsgrad (${fmtX(debtToIncome)})` : s2 === "low" ? `lav EK% (${fmtPct(equityPct)})` : `lav Kontantstrøm/Gjeld (${fmtX(cashToDebt)})`;
+    reason = `Din Tapsbærende Evne er Lav primært på grunn av ${worst}. Reduser gjelden eller øk inntekten/kontantstrømmen.`;
+  } else if (overall === "mid") {
+    reason = "Ingen av nøkkeltallene er Lav, men minst ett er Middels. Forbedre forholdene for å løfte TBE til Høy.";
+  } else {
+    reason = "Alle nøkkeltall vurderes som Høy. Økonomien fremstår robust.";
+  }
+  expl.textContent = reason;
+  concl.appendChild(title);
+  concl.appendChild(expl);
+  panel.appendChild(concl);
+
+  // Grunnlagsblokk bevisst utelatt i TBE-visningen
+
   root.appendChild(panel);
   updateTopSummaries();
 }
