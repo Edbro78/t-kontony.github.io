@@ -26,6 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const navItems = document.querySelectorAll(".nav-item");
   const sectionTitle = document.getElementById("sectionTitle");
   const moduleRoot = document.getElementById("module-root");
+  const stepperList = document.getElementById("stepper-list");
   // Output UI
   initOutputUI();
 
@@ -57,6 +58,38 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Bygg stepper
+  const steps = [
+    { key: "Eiendeler" },
+    { key: "Gjeld" },
+    { key: "Inntekter" },
+    { key: "Kontantstrøm" },
+    { key: "TBE" },
+    { key: "Grafikk I" },
+    { key: "Grafikk II" },
+    { key: "Analyse" }
+  ];
+  function renderStepper(currentKey) {
+    if (!stepperList) return;
+    stepperList.innerHTML = "";
+    // Sett dynamisk kolonneantall
+    stepperList.style.setProperty("--step-count", String(steps.length));
+    steps.forEach((s, idx) => {
+      const li = document.createElement("li");
+      li.className = "step";
+      const dot = document.createElement("span");
+      dot.className = "step-dot";
+      const label = document.createElement("span");
+      label.className = "step-label";
+      label.textContent = s.key;
+      li.appendChild(dot); li.appendChild(label);
+      const currentIndex = steps.findIndex(x => x.key === currentKey);
+      if (idx <= currentIndex) li.classList.add("is-reached");
+      if (idx === currentIndex) li.classList.add("is-current");
+      stepperList.appendChild(li);
+    });
+  }
+
   navItems.forEach((item) => {
     item.addEventListener("click", () => {
       const currentlyActive = document.querySelector(".nav-item.is-active");
@@ -66,6 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const title = item.getAttribute("data-section") || item.textContent || "";
       if (sectionTitle) sectionTitle.textContent = title;
+      renderStepper(title);
 
       if (!moduleRoot) return;
       if (title === "Eiendeler") {
@@ -76,17 +110,15 @@ document.addEventListener("DOMContentLoaded", () => {
         renderIncomeModule(moduleRoot);
       } else if (title === "Analyse") {
         renderAnalysisModule(moduleRoot);
-      } else if (title === "Tapsbærende evne") {
+      } else if (title === "TBE") {
         renderTbeModule(moduleRoot);
       } else if (title === "Forventet avkastning") {
         renderExpectationsModule(moduleRoot);
-      } else if (title === "Grafikk I") {
-        renderGraphicsModule(moduleRoot);
       } else if (title === "Grafikk II") {
         renderDonutModule(moduleRoot);
       } else if (title === "Kontantstrøm") {
         renderWaterfallModule(moduleRoot);
-      } else if (title === "Fremtidig utvikling") {
+      } else if (title === "Grafikk I") {
         renderFutureModule(moduleRoot);
       } else {
         moduleRoot.innerHTML = "";
@@ -100,6 +132,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   // Oppdater summer i topp-boksene
   updateTopSummaries();
+  // Init stepper
+  renderStepper("Eiendeler");
 });
 
 
@@ -210,7 +244,8 @@ function renderGraphicsModule(root) {
   // Bruk faktiske eiendelsnavn (identiske med Eiendeler-fanen)
   const assets = AppState.assets || [];
   const debts = AppState.debts || [];
-  const blueScale = ["#2A4D80", "#355F9E", "#60A5FA", "#00A9E0", "#294269", "#203554"];
+  // Lys blåskala for lys tema
+  const blueScale = ["#C8DBFF", "#A9C6FF", "#7FAAF6", "#5A94FF", "#E0EDFF", "#F0F6FF"];
   const assetCategories = assets.map((a, idx) => ({
     key: String(a.name || `Eiendel ${idx + 1}`),
     value: a.amount || 0,
@@ -258,13 +293,13 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets) {
   // Styles inside SVG
   const style = document.createElementNS(svgNS, "style");
   style.textContent = `
-    .t-title { font: 900 28px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #E5E7EB; }
-    .t-sub { font: 500 14px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #94A3B8; }
-    .t-panel { font: 700 20px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #E5E7EB; }
-    .t-label { font: 500 14px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #E5E7EB; }
-    .t-value { font: 700 13px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #CBD5E1; }
-    .t-legend { font: 500 13px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #94A3B8; }
-    .sum-text { font: 700 14px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #CBD5E1; display: none; }
+    .t-title { font: 900 28px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #1C2A3A; }
+    .t-sub { font: 500 14px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #8A98A7; }
+    .t-panel { font: 700 20px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #1C2A3A; }
+    .t-label { font: 500 14px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #1C2A3A; }
+    .t-value { font: 700 13px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #677788; }
+    .t-legend { font: 500 13px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #677788; }
+    .sum-text { font: 700 14px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #677788; display: none; }
   `;
   svg.appendChild(style);
 
@@ -272,7 +307,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets) {
   const bg = document.createElementNS(svgNS, "rect");
   bg.setAttribute("x", "0"); bg.setAttribute("y", "0");
   bg.setAttribute("width", String(vbW)); bg.setAttribute("height", String(vbH));
-  bg.setAttribute("fill", "#1A2A47");
+  bg.setAttribute("fill", "#F2F4F7");
   svg.appendChild(bg);
 
   // Defs: shadow and clip
@@ -321,7 +356,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets) {
 
   // Card sizes
   const cardR = 12;
-  const cardStroke = "#364A6E";
+  const cardStroke = "#E8EBF3";
 
   // Estimate card height to fit bar and texts (may approach bottom)
   const cardHeight = Math.min(700 - panelsTopY - 32 - 24, 560); // heuristic to keep legend room
@@ -333,7 +368,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets) {
   leftCard.setAttribute("width", String(panelW));
   leftCard.setAttribute("height", String(cardHeight));
   leftCard.setAttribute("rx", String(cardR)); leftCard.setAttribute("ry", String(cardR));
-  leftCard.setAttribute("fill", "#24385B");
+  leftCard.setAttribute("fill", "#FFFFFF");
   leftCard.setAttribute("stroke", cardStroke);
   leftCard.setAttribute("filter", "url(#cardShadow)");
   leftCard.setAttribute("aria-label", "Eiendeler");
@@ -346,7 +381,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets) {
   rightCard.setAttribute("width", String(panelW));
   rightCard.setAttribute("height", String(cardHeight));
   rightCard.setAttribute("rx", String(cardR)); rightCard.setAttribute("ry", String(cardR));
-  rightCard.setAttribute("fill", "#24385B");
+  rightCard.setAttribute("fill", "#FFFFFF");
   rightCard.setAttribute("stroke", cardStroke);
   rightCard.setAttribute("filter", "url(#cardShadow)");
   rightCard.setAttribute("aria-label", "Finansiering");
@@ -371,7 +406,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets) {
   svg.appendChild(rHead);
 
   // Bars placement og dynamisk høyde slik at bunnmarg == toppmarg
-  const barWidth = 156; // 30% bredere stolper for mer elegant uttrykk
+  const barWidth = 156; // stolpebredde
   const gapHeadToBar = 24;
   const barTopY = Math.round(panelsTopY + 24 + 26 + gapHeadToBar);
   const topSpace = barTopY - panelsTopY;
@@ -487,7 +522,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets) {
   leftOutline.setAttribute("height", String(barHeight));
   leftOutline.setAttribute("rx", "8"); leftOutline.setAttribute("ry", "8");
   leftOutline.setAttribute("fill", "none");
-  leftOutline.setAttribute("stroke", "#364A6E");
+  leftOutline.setAttribute("stroke", "#E8EBF3");
   leftOutline.setAttribute("stroke-width", "1.5");
   svg.appendChild(leftOutline);
 
@@ -564,7 +599,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets) {
   rightOutline.setAttribute("height", String(barHeight));
   rightOutline.setAttribute("rx", "8"); rightOutline.setAttribute("ry", "8");
   rightOutline.setAttribute("fill", "none");
-  rightOutline.setAttribute("stroke", "#364A6E"); // subtle contour
+  rightOutline.setAttribute("stroke", "#E8EBF3"); // subtle contour
   rightOutline.setAttribute("stroke-width", "1");
   svg.appendChild(rightOutline);
 
@@ -595,8 +630,8 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets) {
   eqPlate.setAttribute("width", "32");
   eqPlate.setAttribute("height", "32");
   eqPlate.setAttribute("rx", "8");
-  eqPlate.setAttribute("fill", "#24385B");
-  eqPlate.setAttribute("stroke", "#364A6E");
+  eqPlate.setAttribute("fill", "#FFFFFF");
+  eqPlate.setAttribute("stroke", "#E8EBF3");
   eqPlate.setAttribute("filter", "url(#cardShadow)");
   svg.appendChild(eqPlate);
 
@@ -605,18 +640,18 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets) {
   eqText.setAttribute("y", String(eqY + 8));
   eqText.setAttribute("text-anchor", "middle");
   eqText.setAttribute("class", "t-label");
-  eqText.setAttribute("fill", "#00A9E0");
+  eqText.setAttribute("fill", "#0A5EDC");
   eqText.textContent = "=";
   svg.appendChild(eqText);
 
   // Legend (approximate centering, computed after items are appended)
   const legendItems = [
-    { key: "Anleggsmidler", color: "#2A4D80" },
-    { key: "Varelager", color: "#355F9E" },
-    { key: "Fordringer", color: "#60A5FA" },
-    { key: "Kontanter", color: "#00A9E0" },
-    { key: "Egenkapital", color: "#4ADE80" },
-    { key: "Gjeld", color: "#f87171" }
+    { key: "Anleggsmidler", color: "#8CB2FF" },
+    { key: "Varelager", color: "#5A94FF" },
+    { key: "Fordringer", color: "#0A5EDC" },
+    { key: "Kontanter", color: "#B6CCFF" },
+    { key: "Egenkapital", color: "#0C8F4A" },
+    { key: "Gjeld", color: "#912018" }
   ];
   const legendGroup = document.createElementNS(svgNS, "g");
   const legendY = Math.min(vbH - 32, sumY + 24 + 16); // place under sums
@@ -666,7 +701,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets) {
 function renderDonutModule(root) {
   root.innerHTML = "";
   const assets = AppState.assets || [];
-  const blueScale = ["#2A4D80", "#355F9E", "#60A5FA", "#00A9E0", "#294269", "#203554"];
+  const blueScale = ["#B6CCFF", "#8CB2FF", "#5A94FF", "#0A5EDC", "#C8D8FF", "#E4ECFF"];
   const assetCategories = assets.map((a, idx) => ({
     key: String(a.name || `Eiendel ${idx + 1}`),
     value: a.amount || 0,
@@ -682,7 +717,7 @@ function renderDonutModule(root) {
   const bg = document.createElementNS(svgNS, "rect");
   bg.setAttribute("x", "0"); bg.setAttribute("y", "0");
   bg.setAttribute("width", String(vbW)); bg.setAttribute("height", String(vbH));
-  bg.setAttribute("fill", "#1A2A47");
+  bg.setAttribute("fill", "#F2F4F7");
   svg.appendChild(bg);
 
   const centerX = Math.round(vbW * 0.38); const centerY = Math.round(vbH * 0.52);
@@ -696,9 +731,9 @@ function renderDonutModule(root) {
   tip.setAttribute("pointer-events", "none");
   const tipBg = document.createElementNS(svgNS, "rect");
   tipBg.setAttribute("rx", "8"); tipBg.setAttribute("ry", "8");
-  tipBg.setAttribute("fill", "#24385B"); tipBg.setAttribute("stroke", "#364A6E");
+  tipBg.setAttribute("fill", "#FFFFFF"); tipBg.setAttribute("stroke", "#E8EBF3");
   const tipText = document.createElementNS(svgNS, "text");
-  tipText.setAttribute("fill", "#E5E7EB"); tipText.setAttribute("font-size", "14"); tipText.setAttribute("font-weight", "700");
+  tipText.setAttribute("fill", "#1C2A3A"); tipText.setAttribute("font-size", "14"); tipText.setAttribute("font-weight", "700");
   tip.appendChild(tipBg); tip.appendChild(tipText);
   svg.appendChild(tip);
 
@@ -763,7 +798,7 @@ function renderDonutModule(root) {
 
     const text = document.createElementNS(svgNS, "text");
     text.setAttribute("x", String(legendX + 18)); text.setAttribute("y", String(legendY + 11));
-    text.setAttribute("fill", "#E5E7EB"); text.setAttribute("font-size", "14"); text.setAttribute("font-weight", "600");
+    text.setAttribute("fill", "#1C2A3A"); text.setAttribute("font-size", "14"); text.setAttribute("font-weight", "600");
     text.textContent = `${seg.key} · ${formatNOK(seg.value)}`;
     svg.appendChild(text);
     legendY += 22;
@@ -792,22 +827,22 @@ function renderWaterfallModule(root) {
 
   const style = document.createElementNS(svgNS, "style");
   style.textContent = `
-    .wf-title { font: 900 24px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #E5E7EB; }
-    .wf-label { font: 600 13px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #CBD5E1; }
-    .wf-value { font: 700 13px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #E5E7EB; }
+    .wf-title { font: 900 24px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #1C2A3A; }
+    .wf-label { font: 600 13px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #677788; }
+    .wf-value { font: 700 13px Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #1C2A3A; }
   `;
   svg.appendChild(style);
 
   const bg = document.createElementNS(svgNS, "rect");
   bg.setAttribute("x", "0"); bg.setAttribute("y", "0");
   bg.setAttribute("width", String(vbW)); bg.setAttribute("height", String(vbH));
-  bg.setAttribute("fill", "#1A2A47");
+  bg.setAttribute("fill", "#F2F4F7");
   svg.appendChild(bg);
 
   const panel = document.createElementNS(svgNS, "rect");
   panel.setAttribute("x", "12"); panel.setAttribute("y", "12");
   panel.setAttribute("width", String(vbW - 24)); panel.setAttribute("height", String(vbH - 24));
-  panel.setAttribute("rx", "12"); panel.setAttribute("fill", "#24385B"); panel.setAttribute("stroke", "#364A6E");
+  panel.setAttribute("rx", "12"); panel.setAttribute("fill", "#FFFFFF"); panel.setAttribute("stroke", "#E8EBF3");
   svg.appendChild(panel);
 
   // Data synthesis from AppState with fixed categories
@@ -873,12 +908,14 @@ function renderWaterfallModule(root) {
     );
     const scaleY = (v) => (v / Math.max(1, maxAbs)) * chartH;
 
-    const green = "#52cc86"; const blue = "#60A5FA";
-    // Behagelige rødfarger i nyanser for kostnadssøyler
-    const redPalette = ["#f199a2", "#eb6f7e", "#e25f70", "#d84f63", "#cf4157"]; // lys -> dyp
-    const redEnd = "#d84f63"; // sluttstolpe ved negativ kontantstrøm
-    // Behagelige grønnfarger for inntekts-søylene
-    const greenPalette = ["#7be3a7", "#52cc86", "#34c185", "#2fb779"]; // varierte grønntoner
+    // Bruk en litt mørkere variant (BLUE_200) for konsistens
+    const cashflowPositive = (getComputedStyle(document.documentElement).getPropertyValue('--BLUE_200') || '#E0EDFF').trim();
+    const blue = "#0A5EDC";
+    // Rødfarger for kostnadssøyler i lys tema
+    const redPalette = ["#F5B5B1", "#F1998F", "#EC7E73", "#E36258", "#D84F47"]; // lys -> dyp
+    const redEnd = "#D84F47"; // sluttstolpe ved negativ kontantstrøm
+    // Grønnpalett for inntekter
+    const greenPalette = ["#B5ECD0", "#7AD9A9", "#34C185", "#0C8F4A"]; // varierte grønntoner
 
     const colW = Math.max(60, Math.floor(chartW / steps.length) - 10);
     let cursorX = padX;
@@ -909,7 +946,7 @@ function renderWaterfallModule(root) {
       } else { // end
         h = scaleY(Math.abs(s.value));
         y = padTop + chartH - h;
-        fill = s.value >= 0 ? green : redEnd;
+        fill = s.value >= 0 ? cashflowPositive : redEnd;
       }
 
       const rect = document.createElementNS(svgNS, "rect");
@@ -920,8 +957,8 @@ function renderWaterfallModule(root) {
       rect.setAttribute("rx", "6");
       rect.setAttribute("fill", fill);
       rect.setAttribute("fill-opacity", "0.9");
-      rect.setAttribute("stroke", "#1f2937");
-      rect.setAttribute("stroke-opacity", "0.3");
+      rect.setAttribute("stroke", "#E8EBF3");
+      rect.setAttribute("stroke-opacity", "1");
       svg.appendChild(rect);
 
       const lab = document.createElementNS(svgNS, "text");
@@ -1033,24 +1070,16 @@ function renderFutureModule(root) {
 
   // År-slider under grafikken
   const wrap = document.createElement("div");
-  wrap.style.display = "flex";
-  wrap.style.flexDirection = "column";
-  wrap.style.alignItems = "center";
-  wrap.style.marginTop = "-96px"; // bring slider closer to the graphic
+  wrap.className = "year-slider-card";
 
   const yearLabel = document.createElement("div");
   yearLabel.className = "year-display";
   yearLabel.textContent = "2025";
-  yearLabel.style.color = "#E5E7EB";
-  yearLabel.style.fontWeight = "700";
-  yearLabel.style.fontSize = "24px";
-  yearLabel.style.marginBottom = "0px";
   wrap.appendChild(yearLabel);
 
   const year = document.createElement("input");
   year.type = "range";
   year.min = "2025"; year.max = "2050"; year.step = "1"; year.value = "2025";
-  year.style.width = "70%";
   year.className = "year-range";
   year.addEventListener("input", () => { yearLabel.textContent = year.value; draw(Number(year.value)); });
   wrap.appendChild(year);
@@ -1259,7 +1288,7 @@ function renderDebtModule(root) {
   const typeWrap = document.createElement("div");
   typeWrap.className = "select";
   const select = document.createElement("select");
-  ["Annuitetslån", "Serielån"].forEach((t) => {
+  ["Annuitetslån", "Serielån", "Avdragsfrihet"].forEach((t) => {
     const opt = document.createElement("option");
     opt.value = t;
     opt.textContent = t.toUpperCase();
@@ -1405,8 +1434,10 @@ function renderAnalysisModule(root) {
   if (AppState.debtParams.type === "Annuitetslån") {
     if (r === 0) annualDebtPayment = totalDebt / n;
     else annualDebtPayment = totalDebt * (r / (1 - Math.pow(1 + r, -n)));
-  } else { // Serielån (avg. over løpetid)
+  } else if (AppState.debtParams.type === "Serielån") { // Serielån (avg. over løpetid)
     annualDebtPayment = totalDebt / n + (totalDebt * r) / 2;
+  } else { // Avdragsfrihet: kun renter
+    annualDebtPayment = totalDebt * r;
   }
 
   const cashflow = totalIncome - annualCosts - annualDebtPayment;
@@ -1644,8 +1675,10 @@ function updateTopSummaries() {
   if (AppState.debtParams.type === "Annuitetslån") {
     if (r === 0) annualDebtPayment = totalDebt / n;
     else annualDebtPayment = totalDebt * (r / (1 - Math.pow(1 + r, -n)));
-  } else {
+  } else if (AppState.debtParams.type === "Serielån") {
     annualDebtPayment = totalDebt / n + (totalDebt * r) / 2;
+  } else { // Avdragsfrihet
+    annualDebtPayment = totalDebt * r;
   }
   const cashflow = Math.round(totalIncome - annualCosts - annualDebtPayment);
   const elC = document.getElementById("sum-cashflow");
@@ -1765,8 +1798,10 @@ function generateOutputText() {
   if (AppState.debtParams.type === "Annuitetslån") {
     if (r === 0) annualDebtPayment = sumDebts / n;
     else annualDebtPayment = sumDebts * (r / (1 - Math.pow(1 + r, -n)));
-  } else {
+  } else if (AppState.debtParams.type === "Serielån") {
     annualDebtPayment = sumDebts / n + (sumDebts * r) / 2;
+  } else { // Avdragsfrihet
+    annualDebtPayment = sumDebts * r;
   }
   const cashflow = Math.round(totalIncome - annualCosts - annualDebtPayment);
 
