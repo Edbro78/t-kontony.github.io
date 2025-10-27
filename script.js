@@ -406,7 +406,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets) {
   svg.appendChild(rHead);
 
   // Bars placement og dynamisk høyde slik at bunnmarg == toppmarg
-  const barWidth = 156; // stolpebredde
+  const barWidth = 187; // stolpebredde (+20%)
   const gapHeadToBar = 24;
   const barTopY = Math.round(panelsTopY + 24 + 26 + gapHeadToBar);
   const topSpace = barTopY - panelsTopY;
@@ -865,20 +865,25 @@ function renderWaterfallModule(root) {
     const r = AppState.debtParams && AppState.debtParams.rate || 0;
     const n = Math.max(1, AppState.debtParams && AppState.debtParams.years || 1);
     let annualPayment = 0;
-    if ((AppState.debtParams && AppState.debtParams.type) === "Serielån") {
+    const loanType = (AppState.debtParams && AppState.debtParams.type) || "Annuitetslån";
+    if (loanType === "Serielån") {
       annualPayment = totalDebt / n + (totalDebt * r) / 2; // approx average
+    } else if (loanType === "Avdragsfrihet") {
+      // Kun renter, ingen avdrag
+      annualPayment = totalDebt * r;
     } else {
+      // Annuitetslån
       annualPayment = totalDebt * (r / (1 - Math.pow(1 + r, -n)));
     }
     const interestCost = totalDebt * r; // first-year interest approximation
-    const principalCost = Math.max(0, annualPayment - interestCost);
+    const principalCost = loanType === "Avdragsfrihet" ? 0 : Math.max(0, annualPayment - interestCost);
 
     const costs = [
       { key: "Årlig skatt", value: annualTax },
       { key: "Årlige kostnader", value: annualCosts },
       { key: "Rentekostnader", value: interestCost },
       { key: "Avdrag", value: principalCost }
-    ].filter(c => c.value > 0);
+    ].filter(c => c.value > 0 || c.key === "Avdrag");
 
     const net = totalIncome - costs.reduce((s,c)=> s + c.value, 0);
     return { totalIncome, costs, net, wage, dividends, otherIncome };
@@ -937,7 +942,7 @@ function renderWaterfallModule(root) {
     let running = 0;
     let downIndex = 0; let upIndex = 0;
     steps.forEach((s, idx) => {
-      if (!s || !isFinite(s.value) || s.value === 0) return; // hopp over nulltrinn
+      if (!s || !isFinite(s.value)) return; // hopp over nulltrinn, men behold 0 for Avdrag
       let h, y, fill;
       let labelText;
       if (s.type === "up") {
@@ -1910,6 +1915,5 @@ function generateOutputText() {
 
   return lines.join("\n");
 }
-
 
 
