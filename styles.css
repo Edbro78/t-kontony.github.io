@@ -438,6 +438,10 @@ p { /* Avsnitt */
   box-shadow: none;
   overflow: visible; /* sørg for at avrundede kanter ikke klippes */
 }
+.panel-forside {
+  min-height: 240px;
+  padding: 32px;
+}
 
 /* Inndeling i fire responsive bokser */
 .pe-grid {
@@ -456,7 +460,32 @@ p { /* Avsnitt */
   align-items: flex-start;
 }
 
-.summary-card { display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; padding: 12px; gap: 6px; height: 100%; }
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding: 12px;
+  gap: 6px;
+  height: 100%;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  position: relative;
+  overflow: hidden;
+}
+.summary-card::before {
+  content: "";
+  position: absolute;
+  inset: -110px auto auto -110px;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 70%);
+  pointer-events: none;
+}
+.summary-card.is-forside { justify-content: center; align-items: center; text-align: center; gap: 10px; }
+.summary-card.is-forside .summary-title { text-align: center; }
+.summary-card.is-forside .summary-value { display: none; }
 .summary-title { font-weight: var(--weight-semibold); color: var(--GRAY_TEXT_DARK); text-align: left; }
 .summary-title.danger { color: var(--ERROR_DEBT); }
 .summary-title.success { color: var(--success-green); }
@@ -473,6 +502,142 @@ p { /* Avsnitt */
 .summary-cash { background: var(--BLUE_200); }
 .summary-cash .summary-value { color: var(--GRAY_TEXT_SECONDARY); }
 .summary-value { font-weight: var(--weight-semibold); font-size: 1.25rem; color: var(--GRAY_TEXT_SECONDARY); text-align: left; }
+
+.forside-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.forside-card {
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid rgba(255,255,255,0.18);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+.forside-card::before {
+  content: "";
+  position: absolute;
+  inset: -120px auto auto -120px;
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 65%);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.forside-card-assets {
+  background: var(--BLUE_100);
+  color: var(--GRAY_TEXT_DARK);
+}
+.forside-card-assets .forside-card-illustration { color: #0891B2; }
+.forside-card-debt {
+  background: var(--ERROR_LIGHT_BG);
+  color: var(--ERROR_DEBT);
+}
+.forside-card-debt .forside-card-text {
+  color: var(--ERROR_DEBT);
+}
+.forside-card-income {
+  background: #E8F5FF;
+  color: #1C2A3A;
+}
+.forside-card-income .forside-card-illustration { color: #2563EB; }
+.forside-card-income .forside-card-text {
+  color: rgba(28, 42, 58, 0.7);
+}
+.forside-card-cashflow {
+  background: var(--BLUE_200);
+  color: var(--GRAY_TEXT_DARK);
+}
+.forside-card-cashflow .forside-card-illustration { color: #0F766E; }
+.forside-card-cashflow .forside-card-text {
+  color: rgba(28, 42, 58, 0.75);
+}
+.forside-card-tbe {
+  background: #FCE8E8;
+  color: #9F1239;
+}
+.forside-card-tbe .forside-card-illustration { color: #E11D48; }
+.forside-card-analysis {
+  background: #F4F4FF;
+  color: #1C2A3A;
+}
+.forside-card-analysis .forside-card-illustration { color: #4338CA; }
+.forside-card-analysis .forside-card-text {
+  color: #4338CA;
+}
+
+.forside-card-illustration {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.6);
+  color: currentColor;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3);
+}
+.forside-card-illustration svg {
+  width: 28px;
+  height: 28px;
+}
+
+.forside-card-title {
+  font-size: 17px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.2px;
+}
+
+.forside-card-text {
+  font-size: 14px;
+  color: rgba(28, 42, 58, 0.75);
+  white-space: nowrap;
+  max-width: 100%;
+}
+.forside-card-tbe .forside-card-text.status-high { color: #B91C1C; }
+.forside-card-tbe .forside-card-text.status-mid { color: #F43F5E; }
+.forside-card-tbe .forside-card-text.status-low { color: #7F1D1D; }
+
+@media (max-width: 900px) {
+  .forside-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.forside-cta-wrap {
+  margin-top: 28px;
+  display: flex;
+  justify-content: center;
+}
+.forside-cta {
+  appearance: none;
+  border: none;
+  border-radius: 9999px;
+  padding: 12px 28px;
+  font-size: 16px;
+  font-weight: var(--weight-semibold);
+  background: linear-gradient(135deg, #2563EB, #4338CA);
+  color: #fff;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.28);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.forside-cta:hover,
+.forside-cta:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 32px rgba(37, 99, 235, 0.36);
+  outline: none;
+}
+.forside-cta:active {
+  transform: translateY(0);
+}
 
 .assets { display: flex; flex-direction: column; gap: 24px; }
 
@@ -550,18 +715,20 @@ p { /* Avsnitt */
   gap: 10px;
   width: 100%;
   max-width: 960px;
-  margin: -144px auto 8px auto; /* halver avstanden til grafikken */
+  margin: -120px auto 8px auto; /* plasser rett under grafikken med litt luft */
   padding: 16px 18px;
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(15,23,42,0.88), rgba(15,23,42,0.78));
-  border: 1px solid rgba(255,255,255,0.12);
-  box-shadow: 0 12px 28px rgba(2,6,23,0.22), inset 0 0 0 1px rgba(255,255,255,0.03);
+  background: #ffffff;
+  border: 1px solid var(--BORDER_LIGHT);
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
+  position: relative;
+  z-index: 10;
 }
 
 .year-display {
   color: #000000; /* svart tekst */
   font-weight: var(--weight-black);
-  font-size: 24px;
+  font-size: 16.8px; /* 30% reduksjon fra 24px */
   letter-spacing: 0.02em;
 }
 
@@ -811,6 +978,75 @@ p { /* Avsnitt */
   background: rgba(255,255,255,0.08);
   color: var(--text-primary);
   cursor: pointer;
+}
+
+/* --- Grafikk I trigger (ikon oppe til høyre over grafikken) --- */
+.gi-trigger {
+  position: absolute;
+  left: calc(50% - 52px);
+  top: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 20px rgba(2, 6, 23, 0.15);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+}
+.gi-trigger img,
+.gi-trigger svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+.gi-trigger:hover { filter: brightness(0.98); }
+
+.waterfall-canvas {
+  position: relative;
+}
+.waterfall-quick-action {
+  position: absolute;
+  top: 24px;
+  right: 32px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid rgba(51, 93, 158, 0.14);
+  background: linear-gradient(145deg, #FFFFFF 10%, #F3F6FF 90%);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.waterfall-quick-action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+.waterfall-quick-action:active {
+  transform: translateY(0);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+.waterfall-quick-action svg {
+  width: 22px;
+  height: 22px;
+  fill: #335D9E;
+}
+
+/* --- Grafikk I modal adjustments (wide) --- */
+.modal-panel.gi-wide {
+  max-width: 1430px;
+}
+.gi-chart {
+  width: 100%;
+  min-height: 676px;
 }
 
 
