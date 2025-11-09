@@ -13,7 +13,13 @@
           <h1 class="brand-title">T‑konto</h1>
         </div>
         <nav class="nav" role="navigation">
-          <button class="nav-item is-active" data-section="Eiendeler">
+          <button class="nav-item is-active" data-section="Forside">
+            <span class="nav-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="6" rx="2" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="18" height="6" rx="2" stroke="currentColor" stroke-width="2"/></svg>
+            </span>
+            <span class="nav-label">Forside</span>
+          </button>
+          <button class="nav-item" data-section="Eiendeler">
             <span class="nav-icon" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="6" rx="2" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="18" height="6" rx="2" stroke="currentColor" stroke-width="2"/></svg>
             </span>
@@ -37,23 +43,17 @@
             </span>
             <span class="nav-label">Kontantstrøm</span>
           </button>
-          <button class="nav-item" data-section="TBE">
+          <button class="nav-item" data-section="Tapsbærende evne">
             <span class="nav-icon" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l8 3v6c0 4.4-3 8.4-8 9-5-0.6-8-4.6-8-9V6l8-3Z" stroke="currentColor" stroke-width="2"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            <span class="nav-label">TBE</span>
+            <span class="nav-label">Tapsbærende evne</span>
           </button>
-          <button class="nav-item" data-section="Grafikk I">
+          <button class="nav-item" data-section="T-Konto">
             <span class="nav-icon" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 19V5" stroke="currentColor" stroke-width="2"/><path d="M3 19h18" stroke="currentColor" stroke-width="2"/><path d="M7 15l3-3 3 2 4-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            <span class="nav-label">Grafikk I</span>
-          </button>
-          <button class="nav-item" data-section="Grafikk II">
-            <span class="nav-icon" aria-hidden="true">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 9 9h-9V3Z" fill="currentColor"/></svg>
-            </span>
-            <span class="nav-label">Grafikk II</span>
+            <span class="nav-label">T-Konto</span>
           </button>
           <button class="nav-item" data-section="Analyse">
             <span class="nav-icon" aria-hidden="true">
@@ -131,6 +131,33 @@
             <span class="copy-label">Kopier</span>
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- Grafikk I - Utvikling modal -->
+    <div id="gi-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="gi-title" hidden>
+      <div class="modal-backdrop" data-close="true"></div>
+      <div class="modal-panel gi-wide" role="document">
+        <button class="modal-close" aria-label="Lukk" data-close="true">×</button>
+        <div id="gi-chart" class="gi-chart" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <!-- Finansiering - Utvikling modal -->
+    <div id="financing-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="financing-title" hidden>
+      <div class="modal-backdrop" data-close="true"></div>
+      <div class="modal-panel gi-wide" role="document">
+        <button class="modal-close" aria-label="Lukk" data-close="true">×</button>
+        <div id="financing-chart" class="gi-chart" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <!-- Kontantstrøm prognose modal -->
+    <div id="cashflow-forecast-modal" class="modal" role="dialog" aria-modal="true" aria-label="Kontantstrøm fremover" hidden>
+      <div class="modal-backdrop" data-close="true"></div>
+      <div class="modal-panel gi-wide" role="document">
+        <button class="modal-close" aria-label="Lukk" data-close="true">×</button>
+        <div id="cashflow-forecast-chart" class="gi-chart" aria-live="polite"></div>
       </div>
     </div>
 
