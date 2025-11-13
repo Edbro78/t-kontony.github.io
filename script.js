@@ -19,8 +19,19 @@ const AppState = {
     { id: genId(), name: "ÅRLIGE KOSTNADER", amount: 0 }
   ],
   debtParams: { type: "Annuitetslån", years: 25, rate: 0.04 }, // Fallback for bakoverkompatibilitet
-  expectations: { likvider: 4, fastEiendom: 5, investeringer: 8, andreEiendeler: 0, kpi: 2.5 }
+  expectations: { likvider: 4, fastEiendom: 5, investeringer: 8, andreEiendeler: 0, kpi: 2.5 },
+  cashflowRouting: { mode: "forbruk", customAmount: 0 }
 };
+
+function ensureCashflowRoutingState() {
+  if (!AppState.cashflowRouting) {
+    AppState.cashflowRouting = { mode: "forbruk", customAmount: 0 };
+  }
+  const state = AppState.cashflowRouting;
+  if (typeof state.mode !== "string") state.mode = "forbruk";
+  if (!isFinite(state.customAmount)) state.customAmount = 0;
+  return state;
+}
 
 document.addEventListener("DOMContentLoaded", () => {
   const navItems = document.querySelectorAll(".nav-item");
@@ -38,6 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
       (AppState.assets || []).forEach(a => a.amount = 0);
       (AppState.debts || []).forEach(d => d.amount = 0);
       (AppState.incomes || []).forEach(i => i.amount = 0);
+      AppState.cashflowRouting = { mode: "forbruk", customAmount: 0 };
       // Re-render gjeldende fane
       const current = document.querySelector(".nav-item.is-active");
       const section = current && (current.getAttribute("data-section") || current.textContent || "");
@@ -176,7 +188,7 @@ function renderForsideModule(root) {
     { key: "debt", title: "Gjeld", subtitle: "Total gjeld, avdragsprofil og rentekostnader" },
     { key: "income", title: "Inntekter", subtitle: "Inntekter, utbytter, forbruk og skatt" },
     { key: "cashflow", title: "Kontantstrøm", subtitle: "Netto årlig kontantstrøm" },
-    { key: "tbe", title: "Tapsbærende evne", subtitle: "Økonomisk evne til å tåle tap av verdier" },
+    { key: "tbe", title: "Tapsbærende evne", subtitle: "Evnen til å bære tap" },
     { key: "analysis", title: "Analyse", subtitle: "Nøkkeltall og anbefalinger" }
   ];
 
@@ -199,6 +211,14 @@ function renderForsideModule(root) {
     sub.id = `forside-card-subtitle-${key}`;
     sub.textContent = subtitle;
     card.appendChild(sub);
+
+    if (key === "tbe") {
+      const subScore = document.createElement("div");
+      subScore.className = "forside-card-text";
+      subScore.id = "forside-card-score-tbe";
+      subScore.hidden = true;
+      card.appendChild(subScore);
+    }
 
     grid.appendChild(card);
   });
@@ -333,19 +353,60 @@ function computeAssetProjection(yearVal) {
   const rEiend = (exp.fastEiendom || 0) / 100;
   const rInv = (exp.investeringer || 0) / 100;
   const rOther = (exp.andreEiendeler || 0) / 100;
+  const routing = ensureCashflowRoutingState();
+  const cashflow = computeAnnualCashflowBreakdown();
+  const netPositive = Math.max(0, Math.round(cashflow.net || 0));
+  const customAllocation = Math.max(0, Math.min(netPositive, Math.round(routing.customAmount || 0)));
+
+  function projectWithContribution(base, rate, years, contribution) {
+  let value = base;
+  for (let year = 0; year < years; year++) {
+    if (contribution > 0) value += contribution;
+    value = value * (1 + rate);
+  }
+  return value;
+  }
+
   const blueScale = ["#2A4D80", "#355F9E", "#60A5FA", "#00A9E0", "#294269", "#203554"];
   return assets.map((a, idx) => {
     const name = String(a.name || `Eiendel ${idx + 1}`);
     const base = a.amount || 0;
     let rate = rOther;
     const U = name.toUpperCase();
-    if (/LIKVIDER/.test(U)) rate = rLikv;
+    const isLiquidity = /LIKVID|BANK|KONTANT|CASH/.test(U);
+    const isInvestment = /INVEST/.test(U);
+    if (isLiquidity) rate = rLikv;
     else if (/FAST|EIENDOM/.test(U)) rate = rEiend;
-    else if (/INVEST/.test(U)) rate = rInv;
-    const value = base * Math.pow(1 + rate, yearsFromStart);
+    else if (isInvestment) rate = rInv;
+    let contribution = 0;
+    if (isLiquidity && routing.mode === "bank") {
+      contribution = netPositive;
+    } else if (isInvestment) {
+      if (routing.mode === "investeringer") contribution = netPositive;
+      else if (routing.mode === "custom") contribution = customAllocation;
+    }
+    const value = projectWithContribution(base, rate, yearsFromStart, contribution);
     return { key: name, value, color: blueScale[idx % blueScale.length] };
   });
 }
+
+function remainingDebtTotalForYear(yearVal) {
+  const debts = AppState.debts || [];
+  const elapsed = Math.max(0, Number(yearVal) - 2025);
+  return debts.reduce((total, debt) => total + remainingBalanceAfterYears(debt, elapsed), 0);
+}
+
+function computeEquityValue(yearVal) {
+  const assetCategories = computeAssetProjection(yearVal);
+  const totalAssets = assetCategories.reduce((sum, item) => sum + (item.value || 0), 0);
+  const debtVal = Math.min(remainingDebtTotalForYear(yearVal), totalAssets);
+  return Math.max(0, totalAssets - debtVal);
+}
+
+const GiTriggerIcons = {
+  coin: '<ellipse cx="12" cy="7" rx="7" ry="4" fill="#335D9E"/><ellipse cx="12" cy="12" rx="7" ry="4" fill="#335D9E" fill-opacity="0.85"/><ellipse cx="12" cy="17" rx="7" ry="4" fill="#335D9E" fill-opacity="0.7"/>',
+  percent: '<circle cx="7" cy="7" r="2.5" fill="#335D9E"/><circle cx="17" cy="17" r="2.5" fill="#335D9E"/><rect x="11" y="5" width="2" height="14" rx="1" transform="rotate(45 12 12)" fill="#335D9E"/>'
+};
 
 // --- Grafikk modul ---
 function renderGraphicsModule(root) {
@@ -356,11 +417,16 @@ function renderGraphicsModule(root) {
   const debts = AppState.debts || [];
   // Lys blåskala for lys tema
   const blueScale = ["#C8DBFF", "#A9C6FF", "#7FAAF6", "#5A94FF", "#E0EDFF", "#F0F6FF"];
-  const assetCategories = assets.map((a, idx) => ({
-    key: String(a.name || `Eiendel ${idx + 1}`),
-    value: a.amount || 0,
-    color: blueScale[idx % blueScale.length]
-  }));
+  const projectedAssets = computeAssetProjection(2025);
+  const assetCategories = assets.map((a, idx) => {
+    const projected = projectedAssets[idx];
+    const value = projected ? projected.value : (a.amount || 0);
+    return {
+      key: String(a.name || `Eiendel ${idx + 1}`),
+      value,
+      color: blueScale[idx % blueScale.length]
+    };
+  });
 
   const totalAssets = assetCategories.reduce((s, x) => s + x.value, 0);
   const totalDebtRaw = debts.reduce((s, d) => s + (d.amount || 0), 0);
@@ -397,19 +463,75 @@ function renderGraphicsModule(root) {
   const svg = buildFinanceSVG(assetCategories, financingParts, totalAssets);
   graphWrap.appendChild(svg);
 
-  // Trigger-knapp for Finansiering-grafikk oppe til høyre
-  const financingBtn = document.createElement("button");
-  financingBtn.className = "gi-trigger";
-  financingBtn.style.cssText = "left: auto !important; right: 200px !important;"; // Plasser lenger mot venstre fra høyre kant
-  financingBtn.setAttribute("aria-haspopup", "dialog");
-  financingBtn.setAttribute("aria-controls", "financing-modal");
-  financingBtn.setAttribute("title", "Åpne finansieringsutvikling");
-  const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  icon.setAttribute("viewBox", "0 0 24 24");
-  icon.innerHTML = '<rect x="3" y="3" width="7" height="7" rx="2" fill="#335D9E"/><rect x="14" y="3" width="7" height="7" rx="2" fill="#335D9E"/><rect x="3" y="14" width="7" height="7" rx="2" fill="#335D9E"/><rect x="14" y="14" width="7" height="7" rx="2" fill="#335D9E"/>';
-  financingBtn.appendChild(icon);
-  financingBtn.addEventListener("click", () => openFinancingModal());
-  graphWrap.appendChild(financingBtn);
+  function createTriggerButton({ left, right, top, controls, title, ariaLabel, onClick, iconMarkup }) {
+    const btn = document.createElement("button");
+    btn.className = "gi-trigger";
+    if (typeof top === "string") btn.style.top = top;
+    if (typeof left === "string") {
+      btn.style.left = left;
+      btn.style.right = "auto";
+    }
+    if (typeof right === "string") {
+      btn.style.right = right;
+      btn.style.left = "auto";
+    }
+    btn.setAttribute("aria-haspopup", "dialog");
+    if (controls) btn.setAttribute("aria-controls", controls);
+    if (title) btn.setAttribute("title", title);
+    if (ariaLabel) btn.setAttribute("aria-label", ariaLabel);
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.setAttribute("viewBox", "0 0 24 24");
+    icon.innerHTML = iconMarkup || GiTriggerIcons.coin;
+    btn.appendChild(icon);
+    if (typeof onClick === "function") {
+      btn.addEventListener("click", onClick);
+    }
+    return btn;
+  }
+
+  const assetsTrigger = createTriggerButton({
+    left: "calc(50% - 52px)",
+    top: "12px",
+    controls: "gi-modal",
+    title: "Åpne eiendelsutvikling",
+    ariaLabel: "Åpne eiendelsutvikling",
+    onClick: openGiModal,
+    iconMarkup: GiTriggerIcons.coin
+  });
+  graphWrap.appendChild(assetsTrigger);
+
+  const assetsTriggerSecondary = createTriggerButton({
+    left: "calc(50% - 52px)",
+    top: "60px",
+    controls: "gi-modal",
+    title: "Åpne eiendelsutvikling",
+    ariaLabel: "Åpne eiendelsutvikling",
+    onClick: openGiModal,
+    iconMarkup: GiTriggerIcons.percent
+  });
+  graphWrap.appendChild(assetsTriggerSecondary);
+
+  const financingTrigger = createTriggerButton({
+    right: "200px",
+    top: "12px",
+    controls: "financing-modal",
+    title: "Åpne finansieringsutvikling",
+    ariaLabel: "Åpne finansieringsutvikling",
+    onClick: openFinancingModal,
+    iconMarkup: GiTriggerIcons.coin
+  });
+  graphWrap.appendChild(financingTrigger);
+
+  const financingTriggerSecondary = createTriggerButton({
+    right: "200px",
+    top: "60px",
+    controls: "equity-return-modal",
+    title: "Åpne EK-avkastning",
+    ariaLabel: "Åpne EK-avkastning",
+    onClick: openEquityReturnModal,
+    iconMarkup: GiTriggerIcons.percent
+  });
+  graphWrap.appendChild(financingTriggerSecondary);
 
   // Rerender ved resize for å holde tooltip-posisjonering korrekt
   const onResize = () => {
@@ -907,44 +1029,258 @@ function renderWaterfallModule(root) {
   quickBtn.addEventListener("click", openCashflowForecastModal);
   container.appendChild(quickBtn);
 
-  // Data synthesis from AppState with fixed categories
-  function getData() {
-    const incomeItems = AppState.incomes || [];
-    const upper = (s) => String(s || "").toUpperCase();
+  const strip = document.createElement("div");
+  strip.className = "waterfall-base-strip";
 
-    // Income categories
-    const wage = incomeItems.filter(x => /L[ØO]NN/.test(upper(x.name))).reduce((s,x)=> s + (x.amount || 0), 0);
-    const dividends = incomeItems.filter(x => /UTBYT/.test(upper(x.name))).reduce((s,x)=> s + (x.amount || 0), 0);
-    const otherIncome = incomeItems.filter(x => /ANDRE/.test(upper(x.name))).reduce((s,x)=> s + (x.amount || 0), 0);
-    const totalIncome = wage + dividends + otherIncome;
+  const sliderStep = 10_000;
 
-    // Explicit cost categories from inputs
-    const annualTax = incomeItems.filter(x => /SKATT/.test(upper(x.name))).reduce((s,x)=> s + Math.abs(x.amount || 0), 0);
-    const annualCosts = incomeItems.filter(x => /KOSTNAD/.test(upper(x.name))).reduce((s,x)=> s + Math.abs(x.amount || 0), 0);
+  const actions = document.createElement("div");
+  actions.className = "waterfall-strip-actions";
+  const stripLabel = document.createElement("div");
+  stripLabel.className = "waterfall-strip-label";
+  stripLabel.textContent = "Plassering av Årlig kontantstrøm:";
 
-    // Debt-derived costs: interest and principal (beregnet per gjeldspost)
-    const debts = AppState.debts || [];
-    const totalDebt = debts.reduce((s,d)=> s + (d.amount || 0), 0);
-    const annualPayment = calculateTotalAnnualDebtPayment(debts);
-    const interestCost = calculateTotalAnnualInterest(debts);
-    const principalCost = Math.max(0, annualPayment - interestCost);
+  let customSlider = null;
+  let customSliderValue = null;
+  const routingState = ensureCashflowRoutingState();
+  const buttonRefs = new Map();
+  let currentNet = 0;
 
-    const costs = [
-      { key: "Årlig skatt", value: annualTax },
-      { key: "Årlige kostnader", value: annualCosts },
-      { key: "Rentekostnader", value: interestCost },
-      { key: "Avdrag", value: principalCost }
-    ].filter(c => c.value > 0 || c.key === "Avdrag");
+  function updateButtonStates() {
+    const state = ensureCashflowRoutingState();
+    buttonRefs.forEach((el, key) => {
+      if (!el) return;
+      if (key === state.mode) el.classList.add("is-active");
+      else el.classList.remove("is-active");
+    });
+  }
 
-    const net = totalIncome - costs.reduce((s,c)=> s + c.value, 0);
-    return { totalIncome, costs, net, wage, dividends, otherIncome };
+  function selectMode(mode, options = {}) {
+    const state = ensureCashflowRoutingState();
+    const netPositive = Math.max(0, Math.round(currentNet || 0));
+    let changed = false;
+
+  if (mode === "custom") {
+      const raw = options && Object.prototype.hasOwnProperty.call(options, "customAmount")
+        ? Number(options.customAmount)
+        : state.customAmount;
+    const snapped = sliderStep > 0
+      ? Math.round((raw || 0) / sliderStep) * sliderStep
+      : Math.round(raw || 0);
+    const value = Math.max(0, Math.min(netPositive, snapped));
+      if (state.customAmount !== value) {
+        state.customAmount = value;
+        changed = true;
+      }
+    } else {
+      if (state.customAmount !== netPositive) {
+        state.customAmount = netPositive;
+        changed = true;
+      }
+    }
+
+    if (state.mode !== mode) {
+      state.mode = mode;
+      changed = true;
+    }
+
+    updateButtonStates();
+    syncSliderToNet(currentNet);
+
+    if (!options.silent && changed) {
+      notifyCashflowRoutingChange("Kontantstrøm");
+    }
+  }
+
+  const actionItems = [
+    {
+      key: "forbruk",
+      label: "Forbruk",
+      className: "is-forbruk",
+      icon: `
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M3 7h16a2 2 0 012 2v7a3 3 0 01-3 3H6a3 3 0 01-3-3V8a1 1 0 011-1h14" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <path d="M16 11h5v4h-5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <circle cx="13.5" cy="13" r="1.2" fill="currentColor" />
+        </svg>
+      `
+    },
+    {
+      key: "bank",
+      label: "Bank",
+      className: "is-bank",
+      icon: `
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 10h16" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M5 20V10m5 10V10m4 10V10m5 10V10" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M3 10l9-6 9 6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9 20h6" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      `
+    },
+    {
+      key: "investeringer",
+      label: "Investeringer",
+      className: "is-investeringer",
+      icon: `
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 17l4.5-5 3.5 3 5-7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M15 8h4v4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      `
+    },
+    {
+      key: "custom",
+      label: "Alt:",
+      className: "is-custom",
+      icon: `
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 15.5l-3.09 1.63.59-3.43-2.5-2.44 3.45-.5L12 7.5l1.55 3.26 3.45.5-2.5 2.44.59 3.43L12 15.5z" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M19 19c0-1.66-1.79-3-4-3H9c-2.21 0-4 1.34-4 3" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      `
+    }
+  ];
+
+  actionItems.forEach((item) => {
+    const isCustom = item.key === "custom";
+    const wrapper = document.createElement(isCustom ? "div" : "button");
+    wrapper.className = `waterfall-strip-button ${item.className}${isCustom ? " has-slider" : ""}`;
+    wrapper.setAttribute("data-action", item.key);
+    wrapper.setAttribute("aria-label", item.label);
+
+    if (!isCustom) {
+      wrapper.type = "button";
+    }
+
+    const iconHolder = document.createElement("span");
+    iconHolder.className = "wsb-icon";
+    iconHolder.innerHTML = item.icon.trim();
+    iconHolder.querySelectorAll("svg").forEach((svgEl) => {
+      svgEl.setAttribute("stroke", "currentColor");
+    });
+
+    const label = document.createElement("span");
+    label.className = "wsb-label";
+    label.textContent = item.label;
+
+    wrapper.appendChild(iconHolder);
+    wrapper.appendChild(label);
+
+    if (isCustom) {
+      const sliderWrapper = document.createElement("div");
+      sliderWrapper.className = "wsb-slider-wrap";
+
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.className = "wsb-slider";
+      slider.min = "0";
+      slider.max = "0";
+      slider.step = String(sliderStep);
+      slider.value = "0";
+      slider.setAttribute("aria-label", "Fordel årlig kontantstrøm");
+
+      const valueLabel = document.createElement("span");
+      valueLabel.className = "wsb-slider-value";
+      valueLabel.textContent = "0 kr";
+
+      slider.addEventListener("input", () => {
+        const raw = Number(slider.value) || 0;
+        const maxVal = Number(slider.max) || 0;
+        let snapped = sliderStep > 0 ? Math.round(raw / sliderStep) * sliderStep : Math.round(raw);
+        if (snapped > maxVal) snapped = maxVal;
+        if (snapped < 0) snapped = 0;
+        if (snapped !== raw) slider.value = String(snapped);
+        valueLabel.textContent = formatNOK(snapped);
+        selectMode("custom", { customAmount: snapped });
+      });
+
+      sliderWrapper.appendChild(slider);
+      sliderWrapper.appendChild(valueLabel);
+      wrapper.appendChild(sliderWrapper);
+
+      customSlider = slider;
+      customSliderValue = valueLabel;
+      wrapper.setAttribute("role", "group");
+      wrapper.tabIndex = 0;
+      wrapper.addEventListener("click", () => {
+        selectMode("custom", { customAmount: routingState.customAmount });
+      });
+      wrapper.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          selectMode("custom", { customAmount: routingState.customAmount });
+        }
+      });
+    } else {
+      wrapper.addEventListener("click", () => selectMode(item.key));
+      wrapper.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          selectMode(item.key);
+        }
+      });
+    }
+
+    buttonRefs.set(item.key, wrapper);
+    actions.appendChild(wrapper);
+  });
+
+  strip.appendChild(stripLabel);
+  strip.appendChild(actions);
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "waterfall-wrapper";
+  wrapper.appendChild(container);
+  wrapper.appendChild(strip);
+
+  const panelWidthRatio = (vbW - 24) / vbW;
+  const syncStripWidth = () => {
+    const bounds = svg.getBoundingClientRect();
+    if (!bounds.width) return;
+    strip.style.width = `${Math.round(bounds.width * panelWidthRatio)}px`;
+  };
+
+  function syncSliderToNet(netValue) {
+    if (!customSlider || !customSliderValue) return;
+    const state = ensureCashflowRoutingState();
+    const max = Math.max(0, Math.round(netValue || 0));
+    customSlider.max = String(max);
+    if (max === 0) {
+      customSlider.value = "0";
+      customSlider.disabled = true;
+      customSliderValue.textContent = formatNOK(0);
+      if (state.mode === "custom") state.customAmount = 0;
+      return;
+    }
+    customSlider.disabled = false;
+    let sliderValue;
+    if (state.mode === "custom") {
+      let desired = Math.max(0, Math.min(max, Math.round(state.customAmount || 0)));
+      if (sliderStep > 0) desired = Math.max(0, Math.min(max, Math.round(desired / sliderStep) * sliderStep));
+      sliderValue = desired;
+      state.customAmount = sliderValue;
+    } else {
+      let desired = max;
+      if (sliderStep > 0 && desired > 0) {
+        desired = Math.min(max, Math.round(desired / sliderStep) * sliderStep);
+        if (desired === 0 && max > 0) desired = Math.min(max, sliderStep);
+      }
+      sliderValue = desired;
+      state.customAmount = sliderValue;
+    }
+    customSlider.value = String(sliderValue);
+    customSliderValue.textContent = formatNOK(sliderValue);
   }
 
   function draw() {
     // Clear dynamic content except styles/panel (first three nodes: style, bg, panel)
     while (svg.childNodes.length > 3) svg.removeChild(svg.lastChild);
 
-    const { totalIncome, costs, net, wage, dividends, otherIncome } = getData();
+    const state = ensureCashflowRoutingState();
+    const previousAllocated = Math.round(state.customAmount || 0);
+    const { totalIncome, costs, net, wage, dividends, otherIncome } = computeAnnualCashflowBreakdown();
+    currentNet = net;
 
     const padX = 80; const padTop = 70; const padBottom = net < 0 ? 96 : 64; // ekstra plass under baseline ved negativ netto
     const chartW = vbW - padX * 2; const chartH = vbH - padTop - padBottom;
@@ -1064,11 +1400,44 @@ function renderWaterfallModule(root) {
     title.setAttribute("text-anchor", "middle");
     title.textContent = "Waterfall";
     svg.appendChild(title);
+
+    syncStripWidth();
+    syncSliderToNet(net);
+    updateButtonStates();
+    const updatedAllocated = Math.round(state.customAmount || 0);
+    if (state.mode !== "forbruk" && updatedAllocated !== previousAllocated) {
+      notifyCashflowRoutingChange("Kontantstrøm");
+    }
   }
 
   select.addEventListener("change", draw);
   draw();
-  root.appendChild(container);
+  root.appendChild(wrapper);
+  syncStripWidth();
+
+  if (typeof ResizeObserver !== "undefined") {
+    const resizeObserver = new ResizeObserver(syncStripWidth);
+    resizeObserver.observe(svg);
+    strip._resizeObserver = resizeObserver;
+  } else {
+    window.addEventListener("resize", syncStripWidth, { passive: true });
+  }
+}
+
+function notifyCashflowRoutingChange(sourceSection) {
+  const moduleRoot = document.getElementById("module-root");
+  if (!moduleRoot) return;
+  const currentNav = document.querySelector(".nav-item.is-active");
+  if (!currentNav) return;
+  const section = currentNav.getAttribute("data-section") || currentNav.textContent || "";
+  if (section === sourceSection) return;
+  if (section === "T-Konto") {
+    renderGraphicsModule(moduleRoot);
+  } else if (section === "Fremtidig utvikling") {
+    renderFutureModule(moduleRoot);
+  } else if (section === "Analyse") {
+    renderAnalysisModule(moduleRoot);
+  }
 }
 
 function aggregateCashflowBase() {
@@ -1106,6 +1475,34 @@ function aggregateCashflowBase() {
     annualTax,
     annualCosts,
     costTotal: annualTax + annualCosts
+  };
+}
+
+function computeAnnualCashflowBreakdown() {
+  const base = aggregateCashflowBase();
+  const debts = AppState.debts || [];
+  const annualPayment = calculateTotalAnnualDebtPayment(debts);
+  const interestCost = calculateTotalAnnualInterest(debts);
+  const principalCost = Math.max(0, annualPayment - interestCost);
+  const costs = [
+    { key: "Årlig skatt", value: base.annualTax },
+    { key: "Årlige kostnader", value: base.annualCosts },
+    { key: "Rentekostnader", value: interestCost },
+    { key: "Avdrag", value: principalCost }
+  ].filter((c) => c.value > 0 || c.key === "Avdrag");
+  const totalCosts = costs.reduce((sum, c) => sum + (c.value || 0), 0);
+  const net = base.incomeTotal - totalCosts;
+  return {
+    wage: base.wage,
+    dividends: base.dividends,
+    otherIncome: base.otherIncome,
+    totalIncome: base.incomeTotal,
+    annualTax: base.annualTax,
+    annualCosts: base.annualCosts,
+    interestCost,
+    principalCost,
+    costs,
+    net
   };
 }
 
@@ -1404,13 +1801,6 @@ function renderFutureModule(root) {
   graphWrap.style.position = "relative";
   root.appendChild(graphWrap);
 
-  function remainingDebtForYear(yearVal) {
-    return debts.reduce((total, debt) => {
-      const elapsed = Math.max(0, Number(yearVal) - 2025);
-      return total + remainingBalanceAfterYears(debt, elapsed);
-    }, 0);
-  }
-
   // Trigger-knapp (ikon) oppe til høyre - lag først så den ikke blir slettet
   const btn = document.createElement("button");
   btn.className = "gi-trigger";
@@ -1418,12 +1808,23 @@ function renderFutureModule(root) {
   btn.setAttribute("aria-haspopup", "dialog");
   btn.setAttribute("aria-controls", "gi-modal");
   btn.setAttribute("title", "Åpne verdigutvikling");
-  // Fallback ikon (kan byttes ut med brukerens ikon via <img src="...">)
   const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   icon.setAttribute("viewBox", "0 0 24 24");
-  icon.innerHTML = '<rect x="3" y="3" width="7" height="7" rx="2" fill="#335D9E"/><rect x="14" y="3" width="7" height="7" rx="2" fill="#335D9E"/><rect x="3" y="14" width="7" height="7" rx="2" fill="#335D9E"/><rect x="14" y="14" width="7" height="7" rx="2" fill="#335D9E"/>';
+  icon.innerHTML = GiTriggerIcons.coin;
   btn.appendChild(icon);
   btn.addEventListener("click", () => openGiModal());
+
+  const btnSecondary = document.createElement("button");
+  btnSecondary.className = "gi-trigger";
+  btnSecondary.style.cssText = "left: calc(50% - 60px) !important; right: auto !important; top: 60px !important;";
+  btnSecondary.setAttribute("aria-haspopup", "dialog");
+  btnSecondary.setAttribute("aria-controls", "gi-modal");
+  btnSecondary.setAttribute("title", "Åpne verdigutvikling");
+  const iconSecondary = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  iconSecondary.setAttribute("viewBox", "0 0 24 24");
+  iconSecondary.innerHTML = GiTriggerIcons.percent;
+  btnSecondary.appendChild(iconSecondary);
+  btnSecondary.addEventListener("click", () => openGiModal());
 
   // Trigger-knapp for Finansiering-grafikk oppe til høyre
   const financingBtn = document.createElement("button");
@@ -1435,16 +1836,30 @@ function renderFutureModule(root) {
   financingBtn.setAttribute("title", "Åpne finansieringsutvikling");
   const financingIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   financingIcon.setAttribute("viewBox", "0 0 24 24");
-  financingIcon.innerHTML = '<rect x="3" y="3" width="7" height="7" rx="2" fill="#335D9E"/><rect x="14" y="3" width="7" height="7" rx="2" fill="#335D9E"/><rect x="3" y="14" width="7" height="7" rx="2" fill="#335D9E"/><rect x="14" y="14" width="7" height="7" rx="2" fill="#335D9E"/>';
+  financingIcon.innerHTML = GiTriggerIcons.coin;
   financingBtn.appendChild(financingIcon);
   financingBtn.addEventListener("click", () => openFinancingModal());
+
+  const financingBtnSecondary = document.createElement("button");
+  financingBtnSecondary.className = "gi-trigger";
+  financingBtnSecondary.style.left = "auto";
+  financingBtnSecondary.style.right = "12px";
+  financingBtnSecondary.style.top = "60px";
+  financingBtnSecondary.setAttribute("aria-haspopup", "dialog");
+  financingBtnSecondary.setAttribute("aria-controls", "equity-return-modal");
+  financingBtnSecondary.setAttribute("title", "Åpne EK-avkastning");
+  const financingIconSecondary = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  financingIconSecondary.setAttribute("viewBox", "0 0 24 24");
+  financingIconSecondary.innerHTML = GiTriggerIcons.percent;
+  financingBtnSecondary.appendChild(financingIconSecondary);
+  financingBtnSecondary.addEventListener("click", () => openEquityReturnModal());
 
   function draw(yearVal) {
     const assetCategories = computeAssetProjection(yearVal);
     const totalAssets = assetCategories.reduce((s, x) => s + x.value, 0);
-    const remDebt = remainingDebtForYear(yearVal);
+    const remDebt = remainingDebtTotalForYear(yearVal);
     const debtVal = Math.min(remDebt, totalAssets);
-    const equityVal = Math.max(0, totalAssets - debtVal);
+    const equityVal = Math.max(0, totalAssets - remDebt);
     
     // Del opp gjeld i separate segmenter hvis det er flere gjeldsposter
     const financingParts = [];
@@ -1454,10 +1869,12 @@ function renderFutureModule(root) {
     } else if (debts.length > 1) {
       // Hvis flere gjeldsposter, beregn andel for hver gjeldspost basert på gjeldende år
       const debtScale = ["#FCA5A5", "#F87171", "#EF4444", "#DC2626", "#B91C1C"]; // Mildere rødskala
-      const totalDebtRaw = debts.reduce((s, d) => s + (d.amount || 0), 0);
+      const totalRemDebt = remDebt;
       debts.forEach((debt, idx) => {
-        if (totalDebtRaw > 0) {
-          const debtProportion = (debt.amount || 0) / totalDebtRaw;
+        if (totalRemDebt > 0) {
+          const elapsed = Math.max(0, Number(yearVal) - 2025);
+          const remForDebt = remainingBalanceAfterYears(debt, elapsed);
+          const debtProportion = remForDebt / totalRemDebt;
           const debtAmount = Math.min(debtVal * debtProportion, debtVal);
           if (debtAmount > 0) {
             financingParts.push({
@@ -1474,7 +1891,9 @@ function renderFutureModule(root) {
     graphWrap.appendChild(buildFinanceSVG(assetCategories, financingParts, totalAssets));
     // Legg til begge knappene på nytt etter hvert draw-kall
     graphWrap.appendChild(btn);
+    graphWrap.appendChild(btnSecondary);
     graphWrap.appendChild(financingBtn);
+    graphWrap.appendChild(financingBtnSecondary);
 
     // Oppdater toppbokser med projiserte tall
     const elA = document.getElementById("sum-assets");
@@ -1510,8 +1929,9 @@ function renderFutureModule(root) {
   wrap.style.visibility = "visible";
 }
 
-function attachTooltip(svg, target, title, value, percentText) {
+function attachTooltip(svg, target, title, value, percentText, options) {
   const svgNS = "http://www.w3.org/2000/svg";
+  const opts = options || {};
   let tip;
   function ensureTip() {
     if (tip) return tip;
@@ -1545,9 +1965,19 @@ function attachTooltip(svg, target, title, value, percentText) {
   }
   function show(e) {
     const t = ensureTip();
-    t.t1.textContent = title;
-    t.t2.textContent = `Verdi: ${formatNOK(value)}`;
-    t.t3.textContent = `Andel: ${percentText} av total`;
+    const valueText = typeof opts.valueLabel === "string"
+      ? opts.valueLabel
+      : typeof opts.valueFormatter === "function"
+        ? opts.valueFormatter(value, percentText)
+        : `Verdi: ${formatNOK(value)}`;
+    const percentLine = opts.percentLabel !== undefined
+      ? opts.percentLabel
+      : `Andel: ${percentText} av total`;
+    const titleText = typeof opts.titleLabel === "string" ? opts.titleLabel : title;
+    t.t1.textContent = titleText;
+    t.t2.textContent = valueText;
+    t.t3.textContent = percentLine || "";
+    t.t3.setAttribute("display", percentLine ? "inline" : "none");
     t.setAttribute("visibility", "visible");
     position(e);
   }
@@ -1634,6 +2064,34 @@ function openFinancingModal() {
 }
 function closeFinancingModal() {
   const modal = document.getElementById("financing-modal");
+  if (modal) modal.setAttribute("hidden", "");
+}
+
+// --- Egenkapitalavkastning Modal ---
+function openEquityReturnModal() {
+  const modal = document.getElementById("equity-return-modal");
+  const chartRoot = document.getElementById("equity-return-chart");
+  if (!modal || !chartRoot) return;
+  chartRoot.innerHTML = "";
+  try {
+    chartRoot.appendChild(buildEquityReturnSVG(2025, 11));
+  } catch (e) {
+    const p = document.createElement("p");
+    p.textContent = `Kunne ikke bygge graf: ${String((e && e.message) || e)}`;
+    chartRoot.appendChild(p);
+  }
+  modal.removeAttribute("hidden");
+  const onKey = (ev) => { if (ev.key === "Escape") { closeEquityReturnModal(); } };
+  document.addEventListener("keydown", onKey, { once: true });
+  modal.addEventListener("click", (e) => {
+    const t = e.target;
+    if (t && t.getAttribute && t.getAttribute("data-close") === "true") {
+      closeEquityReturnModal();
+    }
+  }, { once: true });
+}
+function closeEquityReturnModal() {
+  const modal = document.getElementById("equity-return-modal");
   if (modal) modal.setAttribute("hidden", "");
 }
 function buildAssetsGrowthSVG(startYear, yearsCount) {
@@ -1821,6 +2279,167 @@ function buildAssetsGrowthSVG(startYear, yearsCount) {
       it.group.setAttribute("transform", `translate(${tx},${dy})`);
     });
   }
+  return svg;
+}
+
+function buildEquityReturnSVG(startYear, yearsCount) {
+  const years = Array.from({ length: yearsCount }, (_, i) => startYear + i);
+  const svgNS = "http://www.w3.org/2000/svg";
+  const vbW = 1180, vbH = 520;
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${vbW} ${vbH}`);
+  svg.style.width = "100%";
+  svg.style.height = "auto";
+  svg.style.display = "block";
+
+  const bg = document.createElementNS(svgNS, "rect");
+  bg.setAttribute("x", "0");
+  bg.setAttribute("y", "0");
+  bg.setAttribute("width", String(vbW));
+  bg.setAttribute("height", String(vbH));
+  bg.setAttribute("fill", "#F2F4F7");
+  svg.appendChild(bg);
+
+  const padL = 80;
+  const padR = 24;
+  const padT = 40;
+  const padB = 84;
+  const plotW = vbW - padL - padR;
+  const plotH = vbH - padT - padB;
+
+  const equityValues = years.map((year) => computeEquityValue(year));
+  const returns = years.map((year, idx) => {
+    if (idx === 0) return 0;
+    const prev = equityValues[idx - 1];
+    if (prev <= 0) return 0;
+    return ((equityValues[idx] / prev) - 1) * 100;
+  });
+
+  let domainMax = Math.max(0, ...returns);
+  let domainMin = Math.min(0, ...returns);
+  if (domainMax - domainMin < 5) {
+    const pad = 5 - (domainMax - domainMin);
+    domainMax += pad / 2;
+    domainMin -= pad / 2;
+  }
+  if (!Number.isFinite(domainMax)) domainMax = 10;
+  if (!Number.isFinite(domainMin)) domainMin = 0;
+  const domainRange = Math.max(1, domainMax - domainMin);
+  const scaleY = plotH / domainRange;
+  const yFor = (value) => padT + (domainMax - value) * scaleY;
+  const zeroY = yFor(0);
+
+  const title = document.createElementNS(svgNS, "text");
+  title.setAttribute("x", String(padL + plotW / 2));
+  title.setAttribute("y", String(padT - 12));
+  title.setAttribute("text-anchor", "middle");
+  title.setAttribute("font-size", "26");
+  title.setAttribute("font-weight", "700");
+  title.setAttribute("fill", "#1E293B");
+  title.setAttribute("font-family", "Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif");
+  title.textContent = "EK Avkastning % år for år";
+  svg.appendChild(title);
+
+  const axisLabel = document.createElementNS(svgNS, "text");
+  axisLabel.setAttribute("x", String(padL - 46));
+  axisLabel.setAttribute("y", String(padT + plotH / 2));
+  axisLabel.setAttribute("text-anchor", "middle");
+  axisLabel.setAttribute("font-size", "14");
+  axisLabel.setAttribute("font-weight", "600");
+  axisLabel.setAttribute("fill", "#475569");
+  axisLabel.setAttribute("font-family", "Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif");
+  axisLabel.setAttribute("transform", `rotate(-90 ${padL - 56} ${padT + plotH / 2})`);
+  axisLabel.textContent = "EK Avkastning (%)";
+  svg.appendChild(axisLabel);
+
+  const ticks = 5;
+  for (let i = 0; i <= ticks; i++) {
+    const value = domainMin + (domainRange * (i / ticks));
+    const y = yFor(value);
+    const line = document.createElementNS(svgNS, "line");
+    line.setAttribute("x1", String(padL));
+    line.setAttribute("x2", String(padL + plotW));
+    line.setAttribute("y1", String(y));
+    line.setAttribute("y2", String(y));
+    line.setAttribute("stroke", value === 0 ? "#CBD5F5" : "#E2E8F0");
+    line.setAttribute("stroke-dasharray", value === 0 ? "4 2" : "2 4");
+    svg.appendChild(line);
+
+    const label = document.createElementNS(svgNS, "text");
+    label.setAttribute("x", String(padL - 12));
+    label.setAttribute("y", String(y + 4));
+    label.setAttribute("text-anchor", "end");
+    label.setAttribute("font-size", "14");
+    label.setAttribute("fill", "#475569");
+    label.setAttribute("font-family", "Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif");
+    label.textContent = formatPercent(value);
+    svg.appendChild(label);
+  }
+
+  const xAxis = document.createElementNS(svgNS, "line");
+  xAxis.setAttribute("x1", String(padL));
+  xAxis.setAttribute("x2", String(padL + plotW));
+  xAxis.setAttribute("y1", String(zeroY));
+  xAxis.setAttribute("y2", String(zeroY));
+  xAxis.setAttribute("stroke", "#94A3B8");
+  xAxis.setAttribute("stroke-width", "1.5");
+  svg.appendChild(xAxis);
+
+  const gap = 16;
+  const count = years.length;
+  const barWidth = Math.max(30, Math.floor((plotW - gap * (count - 1)) / count));
+  const xAt = (idx) => padL + idx * (barWidth + gap);
+
+  years.forEach((year, idx) => {
+    const ret = returns[idx];
+    const equity = equityValues[idx];
+    const barColor = ret >= 0 ? "#3B82F6" : "#EF4444";
+    const yValue = yFor(ret);
+    const height = Math.max(1, Math.abs(zeroY - yValue));
+    const topY = ret >= 0 ? yValue : zeroY;
+    const rect = document.createElementNS(svgNS, "rect");
+    rect.setAttribute("x", String(xAt(idx)));
+    rect.setAttribute("y", String(topY));
+    rect.setAttribute("width", String(barWidth));
+    rect.setAttribute("height", String(height));
+    rect.setAttribute("rx", "6");
+    rect.setAttribute("fill", barColor);
+    rect.setAttribute("opacity", "0.9");
+    rect.setAttribute("stroke", ret >= 0 ? "#2563EB" : "#DC2626");
+    rect.setAttribute("stroke-width", "1");
+    svg.appendChild(rect);
+
+    const label = document.createElementNS(svgNS, "text");
+    label.setAttribute("x", String(xAt(idx) + barWidth / 2));
+    label.setAttribute("text-anchor", "middle");
+    label.setAttribute("font-size", "13");
+    label.setAttribute("font-weight", "600");
+    label.setAttribute("fill", "#1E293B");
+    label.setAttribute("font-family", "Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif");
+    label.textContent = formatPercent(ret);
+    const labelOffset = height < 16 ? 18 : 10;
+    if (ret >= 0) {
+      label.setAttribute("y", String(Math.max(padT + 12, topY - labelOffset)));
+    } else {
+      label.setAttribute("y", String(Math.min(padT + plotH + 40, topY + height + labelOffset)));
+    }
+    svg.appendChild(label);
+
+    const yearLabel = document.createElementNS(svgNS, "text");
+    yearLabel.setAttribute("x", String(xAt(idx) + barWidth / 2));
+    yearLabel.setAttribute("y", String(padT + plotH + 32));
+    yearLabel.setAttribute("text-anchor", "middle");
+    yearLabel.setAttribute("font-size", "14");
+    yearLabel.setAttribute("fill", "#334155");
+    yearLabel.setAttribute("font-family", "Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif");
+    yearLabel.textContent = String(year);
+    svg.appendChild(yearLabel);
+
+    attachTooltip(svg, rect, `År ${year}`, equity, formatPercent(ret), {
+      valueLabel: `Avkastning: ${formatPercent(ret)}`,
+      percentLabel: `Egenkapital: ${formatNOK(Math.round(equity))}`
+    });
+  });
   return svg;
 }
 
@@ -2196,6 +2815,14 @@ function formatNOK(value) {
 
 function formatNOKPlain(value) {
   return new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 0 }).format(value);
+}
+
+function formatPercent(value, fractionDigits = 1) {
+  const formatter = new Intl.NumberFormat("nb-NO", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
+  });
+  return `${formatter.format(value)} %`;
 }
 
 function remainingBalanceAfterYears(debt, elapsedYears) {
@@ -2613,7 +3240,7 @@ function renderTbeModule(root) {
 
   const s1 = scoreDebtToIncome(debtToIncome);
   const s2 = scoreEquityPct(equityPct);
-  const s3 = scoreCashToDebt(cashToDebt);
+  const s3 = totalDebt <= 0 ? "high" : scoreCashToDebt(cashToDebt);
 
   const scoreMap = { low: 1, mid: 2, high: 3 };
   const totalScore = (scoreMap[s1] || 0) + (scoreMap[s2] || 0) + (scoreMap[s3] || 0);
@@ -2727,7 +3354,7 @@ function calculateTbeSummary(snapshot) {
 
   const s1 = scoreDebtToIncome(debtToIncome);
   const s2 = scoreEquityPct(equityPct);
-  const s3 = scoreCashToDebt(cashToDebt);
+  const s3 = totalDebt <= 0 ? "high" : scoreCashToDebt(cashToDebt);
 
   const breakdown = { debtToIncome: s1, equityPct: s2, cashToDebt: s3 };
 
@@ -2757,9 +3384,13 @@ function updateForsideCards(snapshot, forceActive = false) {
   const tbe = calculateTbeSummary(snapshot);
   const tbeSub = document.getElementById("forside-card-subtitle-tbe");
   if (tbeSub) {
-    tbeSub.textContent = `Score: ${tbe.totalScore} poeng`;
-    tbeSub.classList.remove("status-high", "status-mid", "status-low");
-    tbeSub.classList.add(tbe.cssClass);
+    tbeSub.textContent = "Evnen til å bære tap";
+  }
+  const tbeScore = document.getElementById("forside-card-score-tbe");
+  if (tbeScore) {
+    tbeScore.hidden = true;
+    tbeScore.textContent = "";
+    tbeScore.classList.remove("status-high", "status-mid", "status-low");
   }
 }
 
@@ -2924,7 +3555,7 @@ function generateOutputText() {
   const scoreCashToDebt = (v) => v >= 0.25 ? "HØY" : v >= 0.10 ? "MIDDELS" : "LAV";
   const s1 = scoreDebtToIncome(debtToIncome);
   const s2 = scoreEquityPct(equityPct);
-  const s3 = scoreCashToDebt(cashToDebt);
+  const s3 = sumDebts <= 0 ? "HØY" : scoreCashToDebt(cashToDebt);
   const numericMap = { "LAV": 1, "MIDDELS": 2, "HØY": 3 };
   const totalTbeScore = (numericMap[s1] || 0) + (numericMap[s2] || 0) + (numericMap[s3] || 0);
   const overallTBE = totalTbeScore <= 4 ? "LAV" : totalTbeScore <= 6 ? "MIDDELS" : "HØY";
@@ -2975,6 +3606,5 @@ function generateOutputText() {
 
   return lines.join("\n");
 }
-
 
 
