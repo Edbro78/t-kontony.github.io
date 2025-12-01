@@ -4,9 +4,9 @@ function genId() { return __nextId++; }
 
 const AppState = {
   assets: [
-    { id: genId(), name: "BANK", amount: 2000000, locked: true },
-    { id: genId(), name: "FAST EIENDOM", amount: 15000000, locked: true },
-    { id: genId(), name: "INVESTERINGER", amount: 8000000, locked: true }
+    { id: genId(), name: "BANK", amount: 2000000 },
+    { id: genId(), name: "FAST EIENDOM", amount: 15000000 },
+    { id: genId(), name: "INVESTERINGER", amount: 8000000 }
   ],
   debts: [
     { id: genId(), name: "BOLIGLÅN", amount: 10000000, debtParams: { type: "Annuitetslån", years: 25, rate: 0.04 } }
@@ -452,6 +452,11 @@ function renderStrukturModule(root) {
       if (nameInput.value.trim()) {
         privatEntity.name = nameInput.value.trim();
         updateAllEntitySelects();
+        // Oppdater T-Konto-knappen hvis vi er i T-Konto-fanen
+        const tKontoNavItem = document.querySelector('.nav-item[data-section="T-Konto"]');
+        if (tKontoNavItem && tKontoNavItem.classList.contains("is-active")) {
+          updateCardsForTKonto();
+        }
       } else {
         nameInput.value = privatEntity.name || (index === 0 ? "Privat" : `Privat ${getRomanNumeral(index + 1)}`);
       }
@@ -574,6 +579,11 @@ function renderStrukturModule(root) {
         if (nameInput.value.trim()) {
           AppState.structure[key].name = nameInput.value.trim();
           updateAllEntitySelects();
+          // Oppdater T-Konto-knappen hvis vi er i T-Konto-fanen
+          const tKontoNavItem = document.querySelector('.nav-item[data-section="T-Konto"]');
+          if (tKontoNavItem && tKontoNavItem.classList.contains("is-active")) {
+            updateCardsForTKonto();
+          }
         } else {
           nameInput.value = entity.name || defaultName;
         }
@@ -609,6 +619,11 @@ function renderStrukturModule(root) {
       
       renderStrukturModule(root);
       updateAllEntitySelects();
+      // Oppdater T-Konto-knappen hvis vi er i T-Konto-fanen
+      const tKontoNavItem = document.querySelector('.nav-item[data-section="T-Konto"]');
+      if (tKontoNavItem && tKontoNavItem.classList.contains("is-active")) {
+        updateCardsForTKonto();
+      }
     });
 
     holdingsContainer.appendChild(card);
@@ -1409,9 +1424,9 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets, yearVal) 
   }
 
   function pct(value, total) {
-    if (total <= 0) return "0,0 %";
+    if (total <= 0) return "0 %";
     const p = (value * 100) / total;
-    return `${p.toFixed(2).replace('.', ',')} %`;
+    return `${Math.round(p)} %`;
   }
 
   // Left stacked segments (bottom-up): Anleggsmidler, Varelager, Fordringer, Kontanter
@@ -1488,7 +1503,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets, yearVal) 
     rect.setAttribute("stroke-width", "1.5");
     rect.setAttribute("filter", "url(#barShadow)");
     rect.setAttribute("role", "img");
-    rect.setAttribute("aria-label", `${seg.key}: ${formatNOK(seg.value)}, ${pct(seg.value, totalAssets)}`);
+    rect.setAttribute("aria-label", `${String(seg.key || "").toUpperCase()}: ${formatNOK(seg.value)}, ${pct(seg.value, totalAssets)}`);
     gLeft.appendChild(rect);
 
     // Separator (overlay) except at very top
@@ -1507,7 +1522,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets, yearVal) 
       labL.setAttribute("y", String(cy + 4));
       labL.setAttribute("text-anchor", "end");
       labL.setAttribute("class", "t-label");
-      labL.textContent = seg.key;
+      labL.textContent = String(seg.key || "").toUpperCase();
       svg.appendChild(labL);
 
       const labR = document.createElementNS(svgNS, "text");
@@ -1519,7 +1534,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets, yearVal) 
       svg.appendChild(labR);
     }
 
-    attachTooltip(svg, rect, seg.key, seg.value, pct(seg.value, totalAssets));
+    attachTooltip(svg, rect, String(seg.key || "").toUpperCase(), seg.value, pct(seg.value, totalAssets));
   });
 
   // Draw separators over the bar
@@ -1625,7 +1640,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets, yearVal) 
     rect.setAttribute("stroke-width", "1.5");
     rect.setAttribute("filter", "url(#barShadow)");
     rect.setAttribute("role", "img");
-    rect.setAttribute("aria-label", `${seg.key}: ${formatNOK(seg.value)}, ${pct(seg.value, totalFin)}`);
+    rect.setAttribute("aria-label", `${String(seg.key || "").toUpperCase()}: ${formatNOK(seg.value)}, ${pct(seg.value, totalFin)}`);
     gRight.appendChild(rect);
 
     // Separator mellom gjeld-segmenter (ikke etter siste gjeld eller før Egenkapital)
@@ -1633,8 +1648,8 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets, yearVal) 
       rightSeparators.push(Math.round(y));
     }
 
-    // Konverter "Egenkapital" og "Gjeld" til store bokstaver
-    const displayKey = seg.key === "Egenkapital" ? "EGENKAPITAL" : seg.key === "Gjeld" ? "GJELD" : seg.key;
+    // Konverter alle navn til store bokstaver
+    const displayKey = String(seg.key || "").toUpperCase();
     
     if (h >= 24) {
       const cy = y + Math.round(h / 2);
@@ -1673,7 +1688,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets, yearVal) 
       svg.appendChild(labR);
     }
 
-    attachTooltip(svg, rect, seg.key, seg.value, pct(seg.value, totalFin));
+    attachTooltip(svg, rect, String(seg.key || "").toUpperCase(), seg.value, pct(seg.value, totalFin));
   });
 
   // Draw separators over the right bar (mellom gjeld-segmenter)
@@ -2619,6 +2634,9 @@ function renderFutureModule(root) {
 
   const graphWrap = document.createElement("div");
   graphWrap.style.position = "relative";
+  graphWrap.style.width = "100%";
+  graphWrap.style.maxWidth = "1180px";
+  graphWrap.style.margin = "0 auto";
   root.appendChild(graphWrap);
 
   // Trigger-knapper er skjult siden boksene nå har knappfunksjonalitet
@@ -2727,8 +2745,116 @@ function renderFutureModule(root) {
     }
     financingParts.push({ key: "Egenkapital", value: equityVal, color: "#86EFAC" });
     graphWrap.innerHTML = "";
+    
+    // Resize container for grafikken
+    const resizeContainer = document.createElement("div");
+    resizeContainer.className = "t-konto-resize-container";
+    
+    // Hent lagret størrelse eller bruk standard
+    const savedWidth = AppState.tKontoGraphWidth || null;
+    const savedHeight = AppState.tKontoGraphHeight || null;
+    if (savedWidth) {
+      resizeContainer.style.width = savedWidth;
+    } else {
+      resizeContainer.style.width = "100%";
+    }
+    if (savedHeight) {
+      resizeContainer.style.height = savedHeight;
+    } else {
+      // Standard høyde basert på aspect ratio (1200:840)
+      resizeContainer.style.height = "auto";
+      resizeContainer.style.aspectRatio = "1200 / 840";
+    }
+    
     const svgElement = buildFinanceSVG(assetCategories, financingParts, totalAssets, yearVal, null);
-    graphWrap.appendChild(svgElement);
+    // Sett høyde til 100% for å fylle containeren
+    svgElement.style.height = "100%";
+    resizeContainer.appendChild(svgElement);
+    
+    // Resize handle (drahåndtak) i nedre høyre hjørne
+    const resizeHandle = document.createElement("div");
+    resizeHandle.className = "t-konto-resize-handle";
+    resizeHandle.setAttribute("aria-label", "Dra for å endre størrelse");
+    resizeHandle.setAttribute("title", "Dra for å endre størrelse");
+    
+    // SVG-ikon for resize handle (tre diagonale linjer)
+    const resizeIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    resizeIcon.setAttribute("width", "16");
+    resizeIcon.setAttribute("height", "16");
+    resizeIcon.setAttribute("viewBox", "0 0 16 16");
+    resizeIcon.style.display = "block";
+    // Tre diagonale linjer som danner et resize-ikon
+    const line1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line1.setAttribute("x1", "2");
+    line1.setAttribute("y1", "14");
+    line1.setAttribute("x2", "14");
+    line1.setAttribute("y2", "2");
+    line1.setAttribute("stroke", "#94a3b8");
+    line1.setAttribute("stroke-width", "1.5");
+    line1.setAttribute("stroke-linecap", "round");
+    const line2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line2.setAttribute("x1", "6");
+    line2.setAttribute("y1", "14");
+    line2.setAttribute("x2", "14");
+    line2.setAttribute("y2", "6");
+    line2.setAttribute("stroke", "#94a3b8");
+    line2.setAttribute("stroke-width", "1.5");
+    line2.setAttribute("stroke-linecap", "round");
+    const line3 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line3.setAttribute("x1", "10");
+    line3.setAttribute("y1", "14");
+    line3.setAttribute("x2", "14");
+    line3.setAttribute("y2", "10");
+    line3.setAttribute("stroke", "#94a3b8");
+    line3.setAttribute("stroke-width", "1.5");
+    line3.setAttribute("stroke-linecap", "round");
+    resizeIcon.appendChild(line1);
+    resizeIcon.appendChild(line2);
+    resizeIcon.appendChild(line3);
+    resizeHandle.appendChild(resizeIcon);
+    
+    resizeContainer.appendChild(resizeHandle);
+    graphWrap.appendChild(resizeContainer);
+    
+    // Resize funksjonalitet
+    let isResizing = false;
+    let startX, startY, startWidth, startHeight;
+    
+    resizeHandle.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      isResizing = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      const rect = resizeContainer.getBoundingClientRect();
+      startWidth = rect.width;
+      startHeight = rect.height;
+      document.body.style.cursor = "nwse-resize";
+      document.body.style.userSelect = "none";
+    });
+    
+    document.addEventListener("mousemove", (e) => {
+      if (!isResizing) return;
+      e.preventDefault();
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+      const newWidth = Math.max(400, Math.min(1180, startWidth + deltaX)); // Minimum 400px, maksimum 1180px
+      const newHeight = Math.max(300, startHeight + deltaY); // Minimum 300px
+      resizeContainer.style.width = `${newWidth}px`;
+      resizeContainer.style.height = `${newHeight}px`;
+      resizeContainer.style.aspectRatio = "none"; // Tillat uavhengig endring av bredde og høyde
+      // Lagre størrelse
+      AppState.tKontoGraphWidth = `${newWidth}px`;
+      AppState.tKontoGraphHeight = `${newHeight}px`;
+    });
+    
+    document.addEventListener("mouseup", () => {
+      if (isResizing) {
+        isResizing = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+    });
     
     // Knappene er skjult siden boksene nå har knappfunksjonalitet
     // graphWrap.appendChild(btn);
@@ -3139,8 +3265,8 @@ function buildAssetsGrowthSVG(startYear, yearsCount) {
       rect.setAttribute("stroke", "#E8EBF3");
       rect.setAttribute("stroke-width", "1");
       svg.appendChild(rect);
-      const pct = `${(seg.pct).toFixed(2).replace('.', ',')} %`;
-      attachTooltip(svg, rect, seg.key, Math.round(seg.value), pct);
+      const pct = `${Math.round(seg.pct)} %`;
+      attachTooltip(svg, rect, String(seg.key || "").toUpperCase(), Math.round(seg.value), pct);
 
       // Tekst inne i søyle-segmentet: kun prosent - alltid midtstilt i søylen
       const textColor = isDark(seg.color) ? "#ffffff" : "#0f172a";
@@ -3216,8 +3342,9 @@ function buildAssetsGrowthSVG(startYear, yearsCount) {
     const rowsCount = Math.ceil(legendItems.length / cols);
     const colW = availW / cols;
     const rowHeight = 26; // slightly tighter vertically
-    // center the entire grid area under the plot
-    const gridLeft = padL + Math.round((availW - Math.floor(colW) * cols) / 2);
+    // position the entire grid area under the plot, shifted left
+    const centerOffset = Math.round((availW - Math.floor(colW) * cols) / 2);
+    const gridLeft = padL + centerOffset - 40; // flytt 40px til venstre
     // Position items in a grid centered within each cell
     temp.forEach((it, idx) => {
       const row = Math.floor(idx / cols);
@@ -3545,10 +3672,10 @@ function buildTotalCapitalReturnSVG(startYear, yearsCount) {
 
 function formatAxisValue(v) {
   const mnok = v / 1_000_000;
-  if (Math.abs(mnok) < 1e-4) return "0,00 M";
+  if (Math.abs(mnok) < 1e-4) return "0 M";
   const opts = {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
   };
   const formatted = new Intl.NumberFormat("nb-NO", opts).format(mnok);
   return `${formatted} M`;
@@ -3738,8 +3865,8 @@ function buildFinancingGrowthSVG(startYear, yearsCount) {
       rect.setAttribute("stroke", "#E8EBF3");
       rect.setAttribute("stroke-width", "1");
       svg.appendChild(rect);
-      const pct = `${(seg.pct).toFixed(2).replace('.', ',')} %`;
-      attachTooltip(svg, rect, seg.key, Math.round(seg.value), pct);
+      const pct = `${Math.round(seg.pct)} %`;
+      attachTooltip(svg, rect, String(seg.key || "").toUpperCase(), Math.round(seg.value), pct);
 
       // Tekst inne i søyle-segmentet: kun prosent - alltid midtstilt i søylen
       const textColor = isDark(seg.color) ? "#ffffff" : "#0f172a";
@@ -3897,16 +4024,12 @@ function createItemRow(collectionName, item) {
   name.type = "text";
   name.value = item.name || "";
   name.setAttribute("aria-label", `Navn på ${collectionName.slice(0, -1)}`);
-  if (item.locked) {
-    name.readOnly = true;
-  } else {
-    name.addEventListener("input", () => { 
-      item.name = name.value; 
-      markCostIfNeeded(name.value); 
-      setRangeBounds(); 
-      // Bevar assetType når navnet endres - ikke endre det basert på nytt navn
-    });
-  }
+  name.addEventListener("input", () => { 
+    item.name = name.value; 
+    markCostIfNeeded(name.value); 
+    setRangeBounds(); 
+    // Bevar assetType når navnet endres - ikke endre det basert på nytt navn
+  });
 
   // Legg til nedtrekksmeny for assets
   let entitySelect = null;
@@ -3993,19 +4116,13 @@ function createItemRow(collectionName, item) {
   del.className = "asset-delete";
   del.setAttribute("aria-label", `Slett ${collectionName.slice(0, -1)}`);
   del.textContent = "×";
-  if (item.locked) {
-    del.disabled = true;
-    del.style.opacity = "0.5";
-    del.style.cursor = "not-allowed";
-  } else {
-    del.addEventListener("click", () => {
-      const list = AppState[collectionName];
-      const idx = list.findIndex((x) => x.id === item.id);
-      if (idx >= 0) list.splice(idx, 1);
-      row.remove();
-      updateTopSummaries();
-    });
-  }
+  del.addEventListener("click", () => {
+    const list = AppState[collectionName];
+    const idx = list.findIndex((x) => x.id === item.id);
+    if (idx >= 0) list.splice(idx, 1);
+    row.remove();
+    updateTopSummaries();
+  });
 
   top.appendChild(name);
   if (entitySelect) {
@@ -4107,7 +4224,7 @@ function createItemRow(collectionName, item) {
 }
 
 function formatNOK(value) {
-  return new Intl.NumberFormat("nb-NO", { style: "currency", currency: "NOK", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  return new Intl.NumberFormat("nb-NO", { style: "currency", currency: "NOK", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 }
 
 function formatNOKSummary(value) {
@@ -4115,10 +4232,10 @@ function formatNOKSummary(value) {
 }
 
 function formatNOKPlain(value) {
-  return new Intl.NumberFormat("nb-NO", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  return new Intl.NumberFormat("nb-NO", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 }
 
-function formatPercent(value, fractionDigits = 2) {
+function formatPercent(value, fractionDigits = 0) {
   const formatter = new Intl.NumberFormat("nb-NO", {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits
@@ -4292,10 +4409,10 @@ function createDebtRow(debt) {
   rateRange.value = String(debt.debtParams.rate * 100);
   const rateOut = document.createElement("div");
   rateOut.className = "asset-amount";
-  rateOut.textContent = `${(debt.debtParams.rate * 100).toFixed(2).replace('.', ',')} %`;
+  rateOut.textContent = `${Math.round(debt.debtParams.rate * 100)} %`;
   rateRange.addEventListener("input", () => {
     debt.debtParams.rate = Number(rateRange.value) / 100;
-    rateOut.textContent = `${Number(rateRange.value).toFixed(2).replace('.', ',')} %`;
+    rateOut.textContent = `${Math.round(Number(rateRange.value))} %`;
     updateTopSummaries();
   });
   rateCol.appendChild(rateRange);
@@ -4473,21 +4590,21 @@ function renderAnalysisModule(root) {
   const leverageOk = leverage <= 2.5; // <=2.5x
 
   tbody.appendChild(
-    tr("Sum Inntekter / Gjeld", textNode(`${incomeToDebt.toFixed(2)}x`), recCell("> 20%", incomeDebtOk))
+    tr("Sum Inntekter / Gjeld", textNode(`${Math.round(incomeToDebt)}x`), recCell("> 20%", incomeDebtOk))
   );
 
   tbody.appendChild(
-    tr("Renter og avdrag / Sum inntekter", textNode(`${(debtServiceToIncome*100).toFixed(2)}%`), recCell("< 30%", dsIncomeOk))
+    tr("Renter og avdrag / Sum inntekter", textNode(`${Math.round(debtServiceToIncome*100)}%`), recCell("< 30%", dsIncomeOk))
   );
 
   tbody.appendChild(
-    tr("Gjeld / Sum inntekter", textNode(`${debtToIncome.toFixed(2)}x`), recCell("< 5x", debtIncomeOk))
+    tr("Gjeld / Sum inntekter", textNode(`${Math.round(debtToIncome)}x`), recCell("< 5x", debtIncomeOk))
   );
 
   tbody.appendChild(
     tr(
       "Gjeldsgrad (gjeld / egenkapital)",
-      textNode(`${isFinite(leverage) ? leverage.toFixed(2) + 'x' : '∞'}`),
+      textNode(`${isFinite(leverage) ? Math.round(leverage) + 'x' : '∞'}`),
       recCell("< 2.5x", leverageOk)
     )
   );
@@ -4549,8 +4666,8 @@ function renderTbeModule(root) {
 
   function statusLabel(s) { return s === "high" ? "HØY" : s === "mid" ? "MIDDELS" : "LAV"; }
   function statusClass(s) { return s === "high" ? "ok" : s === "mid" ? "mid" : "warn"; }
-  function fmtX(x) { return `${x.toFixed(2).replace('.', ',')}x`; }
-  function fmtPct(p) { return `${p.toFixed(2).replace('.', ',')} %`; }
+  function fmtX(x) { return `${Math.round(x)}x`; }
+  function fmtPct(p) { return `${Math.round(p)} %`; }
 
   // Tabell
   const table = document.createElement("table");
@@ -4911,7 +5028,32 @@ function updateCardsForTKonto() {
   if (card4Element) card4Element.classList.add("is-tkonto");
   
   if (card1) {
-    card1.textContent = "Privat/AS";
+    // Hent faktiske navn fra struktur
+    let privatName = "Privat";
+    let holdingName = null;
+    
+    // Hent første Privat-navn
+    if (AppState.structure && AppState.structure.privat) {
+      const privatArray = Array.isArray(AppState.structure.privat) 
+        ? AppState.structure.privat 
+        : [AppState.structure.privat];
+      if (privatArray.length > 0 && privatArray[0]) {
+        privatName = privatArray[0].name || "Privat";
+      }
+    }
+    
+    // Hent første aktive Holding AS-navn
+    if (AppState.structure && AppState.structure.holding1 && AppState.structure.holding1.active) {
+      holdingName = AppState.structure.holding1.name || "Holding AS";
+    }
+    
+    // Sett tekst med linjeskift hvis det er holding
+    if (holdingName) {
+      card1.innerHTML = `${privatName}<br>${holdingName}`;
+    } else {
+      card1.textContent = privatName;
+    }
+    
     card1.classList.remove("danger", "success", "success-dark");
     // Eiendeler beholder standard farge (var(--GRAY_TEXT_DARK))
   }
@@ -5365,6 +5507,7 @@ function parseInputText(text) {
       if (expKey === "BANK") expectations.likvider = percent;
       else if (expKey === "FAST EIENDOM") expectations.fastEiendom = percent;
       else if (expKey === "INVESTERINGER") expectations.investeringer = percent;
+      else if (expKey === "ANDRE EIENDELER") expectations.andreEiendeler = percent;
       else if (expKey === "Bil/båt") expectations.bilbat = percent;
       else if (expKey === "KPI") expectations.kpi = percent;
     } else if (name === "Kontantstrøm - Tilpasset beløp") {
@@ -5421,8 +5564,7 @@ function parseInputText(text) {
       const asset = {
         id: genId(),
         name: a.name,
-        amount: a.amount,
-        locked: /BANK|FAST\s*EIENDOM|INVESTERINGER/i.test(upperName)
+        amount: a.amount
       };
       // Bruk assetType fra output hvis den er lagret, ellers sett basert på navn
       if (assetTypeMap.has(a.name)) {
