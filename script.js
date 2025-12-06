@@ -740,7 +740,7 @@ function renderAssetsModule(root) {
   root.innerHTML = "";
 
   const panel = document.createElement("div");
-  panel.className = "panel";
+  panel.className = "panel panel-assets";
 
   const heading = document.createElement("h3");
   heading.textContent = "Eiendeler";
@@ -1305,16 +1305,16 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets, yearVal) 
   shadow.appendChild(feDrop);
   defs.appendChild(shadow);
 
-  // Diskret skygge for søyler
+  // Lekker skygge for søyler
   const barShadow = document.createElementNS(svgNS, "filter");
   barShadow.setAttribute("id", "barShadow");
-  barShadow.setAttribute("x", "-20%"); barShadow.setAttribute("y", "-20%");
-  barShadow.setAttribute("width", "140%"); barShadow.setAttribute("height", "140%");
+  barShadow.setAttribute("x", "-30%"); barShadow.setAttribute("y", "-30%");
+  barShadow.setAttribute("width", "160%"); barShadow.setAttribute("height", "160%");
   const feDropBar = document.createElementNS(svgNS, "feDropShadow");
-  feDropBar.setAttribute("dx", "0"); feDropBar.setAttribute("dy", "2");
-  feDropBar.setAttribute("stdDeviation", "3");
+  feDropBar.setAttribute("dx", "0"); feDropBar.setAttribute("dy", "4");
+  feDropBar.setAttribute("stdDeviation", "8");
   feDropBar.setAttribute("flood-color", "#000000");
-  feDropBar.setAttribute("flood-opacity", "0.12");
+  feDropBar.setAttribute("flood-opacity", "0.25");
   barShadow.appendChild(feDropBar);
   defs.appendChild(barShadow);
 
@@ -1431,7 +1431,7 @@ function buildFinanceSVG(assetCategories, financingParts, totalAssets, yearVal) 
 
   // Left stacked segments (bottom-up): Anleggsmidler, Varelager, Fordringer, Kontanter
   const minSegmentHeight = 35; // Minimumshøyde for lesbarhet
-  const validLeftSegs = assetCategories.filter(seg => seg.value > 0);
+  const validLeftSegs = assetCategories.filter(seg => seg.value > 0).reverse();
   
   // Første pass: beregn normale høyder
   const leftHeights = validLeftSegs.map(seg => 
@@ -2221,15 +2221,6 @@ function renderWaterfallModule(root) {
       cursorX += colW + 10;
     });
 
-    // Title
-    const title = document.createElementNS(svgNS, "text");
-    title.setAttribute("class", "wf-title");
-    title.setAttribute("x", String(vbW / 2));
-    title.setAttribute("y", "44");
-    title.setAttribute("text-anchor", "middle");
-    title.textContent = "Waterfall";
-    svg.appendChild(title);
-
     syncStripWidth();
     syncSliderToNet(net);
     updateButtonStates();
@@ -2280,6 +2271,7 @@ function aggregateCashflowBase() {
   let annualTax = 0;
   let annualCosts = 0;
   const individualTaxes = [];
+  const individualCosts = [];
 
   incomeItems.forEach((item) => {
     const amount = Number(item.amount) || 0;
@@ -2291,6 +2283,9 @@ function aggregateCashflowBase() {
       }
     } else if (/KOSTNAD/.test(name)) {
       annualCosts += amount;
+      if (amount > 0) {
+        individualCosts.push({ key: item.name, value: amount });
+      }
     } else {
       if (amount > 0) {
         incomeTotal += amount;
@@ -2309,6 +2304,7 @@ function aggregateCashflowBase() {
     annualTax,
     annualCosts,
     individualTaxes,
+    individualCosts,
     costTotal: annualTax + annualCosts
   };
 }
@@ -2319,9 +2315,14 @@ function computeAnnualCashflowBreakdown() {
   const annualPayment = calculateTotalAnnualDebtPayment(debts);
   const interestCost = calculateTotalAnnualInterest(debts);
   const principalCost = Math.max(0, annualPayment - interestCost);
+  // Hvis det finnes individuelle kostnader, vis dem individuelt, ellers vis samlet "Årlige kostnader"
+  const costItems = base.individualCosts && base.individualCosts.length > 0
+    ? base.individualCosts
+    : (base.annualCosts > 0 ? [{ key: "Årlige kostnader", value: base.annualCosts }] : []);
+  
   const costs = [
     ...base.individualTaxes,
-    { key: "Årlige kostnader", value: base.annualCosts },
+    ...costItems,
     { key: "Rentekostnader", value: interestCost },
     { key: "Avdrag", value: principalCost }
   ].filter((c) => c.value > 0 || c.key === "Avdrag");
@@ -3409,16 +3410,6 @@ function buildEquityReturnSVG(startYear, yearsCount) {
   const yFor = (value) => padT + (domainMax - value) * scaleY;
   const zeroY = yFor(0);
 
-  const title = document.createElementNS(svgNS, "text");
-  title.setAttribute("x", String(padL + plotW / 2));
-  title.setAttribute("y", String(padT - 12));
-  title.setAttribute("text-anchor", "middle");
-  title.setAttribute("font-size", "26");
-  title.setAttribute("font-weight", "700");
-  title.setAttribute("fill", "#1E293B");
-  title.setAttribute("font-family", "Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif");
-  title.textContent = "EK Avkastning % år for år";
-  svg.appendChild(title);
 
   const ticks = 5;
   for (let i = 0; i <= ticks; i++) {
@@ -4420,6 +4411,22 @@ function createDebtRow(debt) {
   rateRow.appendChild(rateOut);
   container.appendChild(rateRow);
 
+  // Override X-knappens event listener for å fjerne hele containeren (inkludert de tre linjene)
+  const deleteButton = nameRow.querySelector(".asset-delete");
+  if (deleteButton) {
+    // Fjern eksisterende event listeners ved å erstatte knappen
+    const newDeleteButton = deleteButton.cloneNode(true);
+    deleteButton.parentNode.replaceChild(newDeleteButton, deleteButton);
+    
+    newDeleteButton.addEventListener("click", () => {
+      const list = AppState.debts;
+      const idx = list.findIndex((x) => x.id === debt.id);
+      if (idx >= 0) list.splice(idx, 1);
+      container.remove(); // Fjern hele containeren (inkludert alle tre linjene)
+      updateTopSummaries();
+    });
+  }
+
   return container;
 }
 
@@ -4427,7 +4434,7 @@ function renderDebtModule(root) {
   root.innerHTML = "";
 
   const panel = document.createElement("div");
-  panel.className = "panel debt";
+  panel.className = "panel debt panel-debt";
 
   const heading = document.createElement("h3");
   heading.textContent = "Gjeld";
@@ -4467,7 +4474,7 @@ function renderIncomeModule(root) {
   root.innerHTML = "";
 
   const panel = document.createElement("div");
-  panel.className = "panel";
+  panel.className = "panel panel-income";
 
   const heading = document.createElement("h3");
   heading.textContent = "Inntekt";
@@ -4479,15 +4486,79 @@ function renderIncomeModule(root) {
 
   AppState.incomes.forEach((item) => list.appendChild(createItemRow("incomes", item)));
 
-  const addBtn = document.createElement("button");
-  addBtn.className = "btn-add";
-  addBtn.textContent = "Legg til inntekt";
-  addBtn.addEventListener("click", () => {
+  // Wrapper for knappene
+  const buttonWrapper = document.createElement("div");
+  buttonWrapper.style.display = "flex";
+  buttonWrapper.style.gap = "12px";
+  buttonWrapper.style.marginTop = "10px";
+
+  // Knapp for å legge til inntekt (grønn)
+  const addIncomeBtn = document.createElement("button");
+  addIncomeBtn.className = "btn-add";
+  addIncomeBtn.style.width = "calc(50% - 6px)";
+  addIncomeBtn.style.backgroundColor = "#7AD9A9"; // Grønn farge som inntekter i kontantstrøm
+  addIncomeBtn.style.borderColor = "#7AD9A9";
+  addIncomeBtn.style.boxShadow = "0 2px 8px rgba(122, 217, 169, 0.3)"; // Skygge
+  addIncomeBtn.textContent = "Legg til inntekt";
+  addIncomeBtn.addEventListener("click", () => {
     const newItem = { id: genId(), name: "NY INNTEKT", amount: 0 };
     AppState.incomes.push(newItem);
     list.appendChild(createItemRow("incomes", newItem));
+    updateTopSummaries();
+    // Oppdater Kontantstrøm hvis den er åpen
+    const moduleRoot = document.getElementById("module-root");
+    const currentNav = document.querySelector(".nav-item.is-active");
+    if (moduleRoot && currentNav) {
+      const section = currentNav.getAttribute("data-section") || currentNav.textContent || "";
+      if (section === "Kontantstrøm") {
+        renderWaterfallModule(moduleRoot);
+      }
+    }
   });
-  panel.appendChild(addBtn);
+  addIncomeBtn.addEventListener("mouseenter", () => {
+    addIncomeBtn.style.filter = "brightness(1.05)";
+    addIncomeBtn.style.boxShadow = "0 4px 12px rgba(122, 217, 169, 0.4)";
+  });
+  addIncomeBtn.addEventListener("mouseleave", () => {
+    addIncomeBtn.style.filter = "none";
+    addIncomeBtn.style.boxShadow = "0 2px 8px rgba(122, 217, 169, 0.3)";
+  });
+  buttonWrapper.appendChild(addIncomeBtn);
+
+  // Knapp for å legge til kostnader (rød)
+  const addCostBtn = document.createElement("button");
+  addCostBtn.className = "btn-add";
+  addCostBtn.style.width = "calc(50% - 6px)";
+  addCostBtn.style.backgroundColor = "#F1998F"; // Rød farge som kostnader i kontantstrøm
+  addCostBtn.style.borderColor = "#F1998F";
+  addCostBtn.style.boxShadow = "0 2px 8px rgba(241, 153, 143, 0.3)"; // Skygge
+  addCostBtn.textContent = "Legg til kostnader";
+  addCostBtn.addEventListener("click", () => {
+    const newItem = { id: genId(), name: "Ny årlig kostnad", amount: 0 };
+    AppState.incomes.push(newItem);
+    list.appendChild(createItemRow("incomes", newItem));
+    updateTopSummaries();
+    // Oppdater Kontantstrøm hvis den er åpen
+    const moduleRoot = document.getElementById("module-root");
+    const currentNav = document.querySelector(".nav-item.is-active");
+    if (moduleRoot && currentNav) {
+      const section = currentNav.getAttribute("data-section") || currentNav.textContent || "";
+      if (section === "Kontantstrøm") {
+        renderWaterfallModule(moduleRoot);
+      }
+    }
+  });
+  addCostBtn.addEventListener("mouseenter", () => {
+    addCostBtn.style.filter = "brightness(1.05)";
+    addCostBtn.style.boxShadow = "0 4px 12px rgba(241, 153, 143, 0.4)";
+  });
+  addCostBtn.addEventListener("mouseleave", () => {
+    addCostBtn.style.filter = "none";
+    addCostBtn.style.boxShadow = "0 2px 8px rgba(241, 153, 143, 0.3)";
+  });
+  buttonWrapper.appendChild(addCostBtn);
+
+  panel.appendChild(buttonWrapper);
 
   root.appendChild(panel);
   updateTopSummaries();
@@ -4520,8 +4591,9 @@ function renderAnalysisModule(root) {
   const annualDebtPayment = calculateTotalAnnualDebtPayment(AppState.debts);
 
   const cashflow = totalIncome - annualCosts - annualDebtPayment;
-  // Din verdi: default 0 kr
-  const bufferCurrent = 0;
+  // Hent bankinnskudd fra eiendeler
+  const bankAsset = AppState.assets.find(a => /^BANK$/i.test(a.name || ""));
+  const bufferCurrent = bankAsset ? (bankAsset.amount || 0) : 0;
   // Anbefalt buffer: (årlig total inntekt / 12) x 3
   const bufferRecommended = (totalIncome / 12) * 3; // 3 mnd av inntekt
 
@@ -4574,13 +4646,16 @@ function renderAnalysisModule(root) {
   debtSvcRow.classList.add("is-cost");
   tbody.appendChild(debtSvcRow);
 
-  const cashRow = tr("Kontantstrøm per år", textNode(formatNOK(Math.round(cashflow))));
+  const recommendedCashflowToDebt = totalIncome * 0.20; // 20% av inntekter
+  const cashflowOk = cashflow >= recommendedCashflowToDebt; // OK hvis faktisk kontantstrøm er høyere eller lik anbefalt
+  const cashRow = tr("Kontantstrøm per år", textNode(formatNOK(Math.round(cashflow))), recCell(formatNOK(Math.round(recommendedCashflowToDebt)), cashflowOk));
   if (cashflow < 0) cashRow.classList.add("is-cost");
   tbody.appendChild(cashRow);
+  const bufferOk = bufferCurrent >= bufferRecommended; // OK hvis bankinnskudd er høyere eller lik anbefalt
   tbody.appendChild(tr(
     "Anbefalt bufferkonto / Likviditetsfond",
     textNode(formatNOK(Math.round(bufferCurrent))),
-    textNode(formatNOK(Math.round(bufferRecommended)))
+    recCell(formatNOK(Math.round(bufferRecommended)), bufferOk)
   ));
 
   // Thresholds
@@ -4667,6 +4742,7 @@ function renderTbeModule(root) {
   function statusLabel(s) { return s === "high" ? "HØY" : s === "mid" ? "MIDDELS" : "LAV"; }
   function statusClass(s) { return s === "high" ? "ok" : s === "mid" ? "mid" : "warn"; }
   function fmtX(x) { return `${Math.round(x)}x`; }
+  function fmtXDecimal(x) { return `${x.toFixed(1)}x`; }
   function fmtPct(p) { return `${Math.round(p)} %`; }
 
   // Tabell
@@ -4687,9 +4763,9 @@ function renderTbeModule(root) {
     return tr;
   }
 
-  tbody.appendChild(trRow("Gjeldsgrad", fmtX(debtToIncome), s1, "Total gjeld / Årlig inntekt", "Gjeldskapasitet"));
+  tbody.appendChild(trRow("Gjeldsgrad", fmtXDecimal(debtToIncome), s1, "Total gjeld / Årlig inntekt", "Gjeldskapasitet"));
   tbody.appendChild(trRow("Egenkapitalandel (EK%)", fmtPct(equityPct), s2, "(Total EK / Totale eiendeler) × 100", "Soliditet"));
-  tbody.appendChild(trRow("Kontantstrøm/Gjeld", fmtX(cashToDebt), s3, "(Årlig kontantstrøm + renter og avdrag) / Gjeld", "Likviditet"));
+  tbody.appendChild(trRow("Kontantstrøm/Gjeld", fmtXDecimal(cashToDebt), s3, "(Årlig kontantstrøm + renter og avdrag) / Gjeld", "Likviditet"));
 
   table.appendChild(thead);
   table.appendChild(tbody);

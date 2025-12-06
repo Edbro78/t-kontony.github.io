@@ -1050,6 +1050,72 @@ p { /* Avsnitt */
 .asset-range { width: 100%; height: 6px; }
 .year-range { width: 100%; height: 8px; }
 
+/* Redusert høyde for inntekter-bokser (20% mindre) */
+.panel-income .asset-row {
+  padding: 13px; /* Redusert fra 16px (20% mindre) */
+}
+
+.panel-income .asset-col {
+  gap: 8px; /* Redusert fra 10px (20% mindre) */
+}
+
+.panel-income .asset-top {
+  gap: 8px; /* Redusert fra 10px (20% mindre) */
+}
+
+.panel-income .asset-name {
+  padding: 8px 10px; /* Redusert fra 10px 12px (20% mindre) */
+}
+
+.panel-income .asset-amount {
+  padding: 8px 13px; /* Redusert fra 10px 16px (20% mindre) */
+  font-size: 1.1rem; /* Redusert fra 1.25rem (ca 20% mindre) */
+}
+
+/* Redusert høyde for eiendeler-bokser (20% mindre) */
+.panel-assets .asset-row {
+  padding: 13px; /* Redusert fra 16px (20% mindre) */
+}
+
+.panel-assets .asset-col {
+  gap: 8px; /* Redusert fra 10px (20% mindre) */
+}
+
+.panel-assets .asset-top {
+  gap: 8px; /* Redusert fra 10px (20% mindre) */
+}
+
+.panel-assets .asset-name {
+  padding: 8px 10px; /* Redusert fra 10px 12px (20% mindre) */
+}
+
+.panel-assets .asset-amount {
+  padding: 8px 13px; /* Redusert fra 10px 16px (20% mindre) */
+  font-size: 1.1rem; /* Redusert fra 1.25rem (ca 20% mindre) */
+}
+
+/* Redusert høyde for gjeld-bokser (20% mindre) */
+.panel-debt .asset-row {
+  padding: 13px; /* Redusert fra 16px (20% mindre) */
+}
+
+.panel-debt .asset-col {
+  gap: 8px; /* Redusert fra 10px (20% mindre) */
+}
+
+.panel-debt .asset-top {
+  gap: 8px; /* Redusert fra 10px (20% mindre) */
+}
+
+.panel-debt .asset-name {
+  padding: 8px 10px; /* Redusert fra 10px 12px (20% mindre) */
+}
+
+.panel-debt .asset-amount {
+  padding: 8px 13px; /* Redusert fra 10px 16px (20% mindre) */
+  font-size: 1.1rem; /* Redusert fra 1.25rem (ca 20% mindre) */
+}
+
 /* Fremtidig utvikling – År-knapper kort og tydeligere stil */
 .year-buttons-card {
   display: flex;
